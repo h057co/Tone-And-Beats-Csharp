@@ -97,6 +97,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/> <!-- New Update Section -->
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
@@ -111,16 +112,45 @@
                                Foreground="{DynamicResource TitleBrush}" HorizontalAlignment="Center"/>
                     <TextBlock Text="BY HOSTILITY" FontSize="14" FontWeight="Bold" 
                                Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" Margin="0,-5,0,0"/>
-                    <TextBlock x:Name="VersionText" Text="VERSION 1.1.0" FontSize="10" 
+                    <TextBlock x:Name="VersionText" Text="VERSION 1.2.0" FontSize="10" 
                                Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,5,0,0"/>
                 </StackPanel>
                 
                 <!-- Section 1: Brand Logo -->
                  <Image x:Name="LogoImageAbout" Grid.Row="1" Height="40" 
                         HorizontalAlignment="Center" Margin="0,5,0,15"/>
+
+                <!-- Section 2: Update Status -->
+                <Border Grid.Row="2" Style="{StaticResource BrutalistSectionBorder}" Margin="0,0,0,15">
+                    <StackPanel>
+                        <TextBlock Text=">_ ACTUALIZACIONES:" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,8"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock x:Name="UpdateStatusText" Text="ESTADO: BUSCANDO..." FontSize="10" Foreground="White"/>
+                                <TextBlock x:Name="UpdateDetailsText" Text="SIN NOVEDADES" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <Button x:Name="UpdateActionButton" Grid.Column="1" 
+                                    Content="[ BUSCAR ]" 
+                                    Click="UpdateActionButton_Click"
+                                    Background="Transparent" BorderThickness="0" 
+                                    Foreground="{DynamicResource AccentBrush}" 
+                                    FontSize="10" Cursor="Hand" Padding="10,5"/>
+                        </Grid>
+                        
+                        <!-- Progress Area (Hidden by default) -->
+                        <StackPanel x:Name="UpdateProgressArea" Visibility="Collapsed" Margin="0,10,0,0">
+                            <ProgressBar x:Name="UpdateProgressBar" Height="2" Background="#333" Foreground="{DynamicResource AccentBrush}" BorderThickness="0" Value="0" Maximum="100"/>
+                            <TextBlock x:Name="UpdateProgressText" Text="DESCARGANDO: 0%" FontSize="8" HorizontalAlignment="Right" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
                 
-                <!-- Section 2: Libraries & Modules -->
-                <Border Grid.Row="2" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="5" Background="{DynamicResource ResultBoxBackgroundBrush}">
+                <!-- Section 3: Libraries & Modules -->
+                <Border Grid.Row="3" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="5" Background="{DynamicResource ResultBoxBackgroundBrush}">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel>
                             <TextBlock Text=">_ LIBRARIES &amp; MODULES:" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" Margin="0,5,0,10"/>
@@ -178,8 +208,8 @@
                     </ScrollViewer>
                 </Border>
                 
-                <!-- Section 3: Support Message -->
-                <TextBlock Grid.Row="3" FontSize="10" 
+                <!-- Section 4: Support Message -->
+                <TextBlock Grid.Row="4" FontSize="10" 
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            TextAlignment="Center"
                            TextWrapping="Wrap"
@@ -187,14 +217,14 @@
                     ESTE PROYECTO NACIÓ DE LAS GANAS DE COMPARTIR ALGO ÚTIL. SI TE GUSTA Y QUIERES APOYAR, TU DONACIÓN ME MOTIVA A SEGUIR INNOVANDO.
                 </TextBlock>
                 
-                <!-- Section 4: Donation Button -->
-                <Button Grid.Row="4" Style="{StaticResource KoFiButton}" 
+                <!-- Section 5: Donation Button -->
+                <Button Grid.Row="5" Style="{StaticResource KoFiButton}" 
                         HorizontalAlignment="Center" 
                         Margin="0,0,0,15"
                         Click="KoFiButton_Click"/>
                 
-                <!-- Section 5: QR Code -->
-                <Border Grid.Row="5" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" HorizontalAlignment="Center" Margin="0,0,0,15" Background="White" Padding="5">
+                <!-- Section 6: QR Code -->
+                <Border Grid.Row="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" HorizontalAlignment="Center" Margin="0,0,0,15" Background="White" Padding="5">
                     <Image x:Name="QrImage" Height="120" 
                            RenderOptions.BitmapScalingMode="HighQuality"
                            Cursor="Hand"
@@ -202,8 +232,8 @@
                            ToolTip="CLIC PARA AMPLIAR"/>
                 </Border>
                 
-                <!-- Section 6: Contact & Website -->
-                <StackPanel Grid.Row="6" HorizontalAlignment="Center" Margin="0,0,0,10">
+                <!-- Section 7: Contact & Website -->
+                <StackPanel Grid.Row="7" HorizontalAlignment="Center" Margin="0,0,0,10">
                     <TextBlock FontSize="12" HorizontalAlignment="Center">
                         <Hyperlink NavigateUri="https://www.hostilitymusic.com" 
                                    RequestNavigate="Hyperlink_RequestNavigate"
@@ -214,8 +244,8 @@
                                HorizontalAlignment="Center" Margin="0,4,0,0"/>
                 </StackPanel>
                 
-                <!-- Section 7: Footer -->
-                <TextBlock Grid.Row="7" FontSize="9" 
+                <!-- Section 8: Footer -->
+                <TextBlock Grid.Row="8" FontSize="9" 
                            Foreground="{DynamicResource TextSecondaryBrush}" 
                            HorizontalAlignment="Center" 
                            Margin="0,0,0,0"

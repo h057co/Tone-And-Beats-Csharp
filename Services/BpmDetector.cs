@@ -49,17 +49,46 @@ public class BpmDetector : IBpmDetectorService
 
             progress?.Report(70);
 
-            // 3. Apply Urban Strategy
-            var heuristic = new UrbanStrategyHeuristic();
-            essentiaResult = heuristic.Apply(essentiaResult);
+            // 3. BIH Verification: compute BPM from beat timestamps (replaces blind heuristics)
+            var bihVerifier = new BeatIntervalVerifier();
+            var bihResult = bihVerifier.ComputeFromBeats(essentiaResult.BeatTimesSeconds);
 
-            LoggerService.Log($"BpmDetector - Final BPM: {essentiaResult.PrimaryBpm:F1} (Reinterpreted: {essentiaResult.IsReinterpreted})");
+            double finalBpm;
+            string decisionPath;
+
+            if (bihResult.IsReliable)
+            {
+                var arbitration = bihVerifier.Arbitrate(
+                    bihResult,
+                    essentiaResult.PrimaryBpm,
+                    essentiaResult.Confidence,
+                    essentiaResult.HistogramPeak1Bpm,
+                    essentiaResult.HistogramPeak1Weight,
+                    essentiaResult.HistogramPeak2Bpm,
+                    essentiaResult.HistogramPeak2Weight);
+                
+                finalBpm = arbitration.bpm;
+                decisionPath = arbitration.path;
+            }
+            else
+            {
+                // BIH not reliable — fall back to Essentia BPM with UrbanStrategy heuristic
+                var heuristic = new UrbanStrategyHeuristic();
+                essentiaResult = heuristic.Apply(essentiaResult);
+                finalBpm = essentiaResult.PrimaryBpm;
+                decisionPath = "essentia_heuristic";
+            }
+
+            // Snap to integer if within 0.3 BPM
+            finalBpm = SnapToInteger(finalBpm);
+
+            LoggerService.Log($"BpmDetector - Final BPM: {finalBpm:F1} (Path: {decisionPath}, " +
+                $"Essentia={essentiaResult.PrimaryBpm:F1}, BIH={bihResult.Bpm:F1})");
+
             progress?.Report(100);
 
-            var altBpm = essentiaResult.AlternateBpms.FirstOrDefault();
-            if (altBpm == 0) altBpm = essentiaResult.PrimaryBpm * 2; // Simple fallback
-
-            return (essentiaResult.PrimaryBpm, altBpm);
+            double altBpm = CalculateAlternativeBpm(finalBpm);
+            return (finalBpm, altBpm);
         }
         catch (Exception ex)
         {
@@ -67,6 +96,7 @@ public class BpmDetector : IBpmDetectorService
             return (0, 0);
         }
     }
+
 
     public async Task<AudioAnalyzer.Models.BpmAnalysisResult?> DetectFullAnalysisAsync(string filePath, IProgress<int>? progress = null)
     {
@@ -87,8 +117,28 @@ public class BpmDetector : IBpmDetectorService
 
             progress?.Report(80);
 
-            var heuristic = new UrbanStrategyHeuristic();
-            result = heuristic.Apply(result);
+            // BIH Verification (same logic as DetectBpmAsync)
+            var bihVerifier = new BeatIntervalVerifier();
+            var bihResult = bihVerifier.ComputeFromBeats(result.BeatTimesSeconds);
+
+            if (bihResult.IsReliable)
+            {
+                var (bihBpm, path) = bihVerifier.Arbitrate(
+                    bihResult, 
+                    result.PrimaryBpm, 
+                    result.Confidence,
+                    result.HistogramPeak1Bpm, 
+                    result.HistogramPeak1Weight,
+                    result.HistogramPeak2Bpm,
+                    result.HistogramPeak2Weight);
+                if (bihBpm > 0)
+                    result.PrimaryBpm = bihBpm;
+            }
+            else
+            {
+                var heuristic = new UrbanStrategyHeuristic();
+                result = heuristic.Apply(result);
+            }
 
             progress?.Report(100);
             return result;

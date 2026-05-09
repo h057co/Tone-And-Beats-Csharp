@@ -49,6 +49,28 @@ public class StorageService
         }
     }
 
+    public async Task SaveVersionPreferenceAsync(string version, bool skip)
+    {
+        var fullPath = Path.Combine(AppDataDir, "update_prefs.json");
+        var prefs = new { LastSkippedVersion = version, SkipUpdates = skip };
+        var json = JsonSerializer.Serialize(prefs);
+        await File.WriteAllTextAsync(fullPath, json);
+    }
+
+    public async Task<string?> GetLastSkippedVersionAsync()
+    {
+        var fullPath = Path.Combine(AppDataDir, "update_prefs.json");
+        if (!File.Exists(fullPath)) return null;
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(fullPath);
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.GetProperty("LastSkippedVersion").GetString();
+        }
+        catch { return null; }
+    }
+
     private string GetAnalysisFileName(string audioFilePath)
     {
         // Simple hash of the file path or just the filename if it's unique enough

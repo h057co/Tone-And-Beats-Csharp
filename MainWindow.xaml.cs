@@ -79,7 +79,7 @@ public partial class MainWindow : Window
 
     private void AboutButton_Click(object sender, RoutedEventArgs e)
     {
-        var aboutWindow = new AboutWindow
+        var aboutWindow = new AboutWindow(ViewModel?.UpdateService)
         {
             Owner = this
         };

@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Windows;
 using AudioAnalyzer.Helpers;
+using AudioAnalyzer.Interfaces;
+using AudioAnalyzer.Models;
 using AudioAnalyzer.Services;
 using AudioAnalyzer.Themes;
 
@@ -9,8 +11,14 @@ namespace AudioAnalyzer;
 
 public partial class AboutWindow : Window
 {
-    public AboutWindow()
+    private readonly IUpdateService? _updateService;
+    private UpdateInfo? _currentUpdate;
+
+    public AboutWindow() : this(null) { }
+
+    public AboutWindow(IUpdateService? updateService)
     {
+        _updateService = updateService;
         LoggerService.Log("AboutWindow - Constructor iniciado");
         InitializeComponent();
         
@@ -25,7 +33,108 @@ public partial class AboutWindow : Window
         LoadEmbeddedImages();
         SetVersionText();
         ThemeManager.ThemeChanged += (s, e) => Dispatcher.BeginInvoke(LoadEmbeddedImages);
+
+        if (_updateService != null)
+        {
+            CheckForUpdatesInternal();
+        }
+
         LoggerService.Log("AboutWindow - Constructor completado");
+    }
+
+    private async void CheckForUpdatesInternal()
+    {
+        if (_updateService == null) return;
+
+        UpdateStatusText.Text = "ESTADO: BUSCANDO...";
+        UpdateStatusText.Foreground = System.Windows.Media.Brushes.White;
+        UpdateActionButton.IsEnabled = false;
+
+        try
+        {
+            _currentUpdate = await _updateService.CheckForUpdatesAsync();
+
+            if (_currentUpdate != null)
+            {
+                UpdateStatusText.Text = $"ESTADO: ACTUALIZACIÓN DISPONIBLE (v{_currentUpdate.Version})";
+                UpdateStatusText.Foreground = (System.Windows.Media.Brush)FindResource("AccentBrush");
+                UpdateDetailsText.Text = "NUEVA VERSIÓN DETECTADA EN GITHUB";
+                UpdateActionButton.Content = "[ DESCARGAR ]";
+            }
+            else
+            {
+                UpdateStatusText.Text = "ESTADO: AL DÍA";
+                UpdateStatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
+                UpdateDetailsText.Text = "ESTÁS UTILIZANDO LA ÚLTIMA VERSIÓN";
+                UpdateActionButton.Content = "[ RE-COMPROBAR ]";
+            }
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusText.Text = "ESTADO: ERROR DE CONEXIÓN";
+            UpdateStatusText.Foreground = System.Windows.Media.Brushes.OrangeRed;
+            UpdateDetailsText.Text = "NO SE PUDO CONECTAR CON GITHUB";
+            LoggerService.Log($"AboutWindow.CheckForUpdatesInternal - Error: {ex.Message}");
+        }
+        finally
+        {
+            UpdateActionButton.IsEnabled = true;
+        }
+    }
+
+    private async void UpdateActionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentUpdate == null)
+        {
+            CheckForUpdatesInternal();
+            return;
+        }
+
+        if (UpdateActionButton.Content.ToString() == "[ REINICIAR ]")
+        {
+            _updateService?.ApplyUpdateAndRestart(_downloadedPath);
+            return;
+        }
+
+        await StartDownloadFlow();
+    }
+
+    private string _downloadedPath = "";
+
+    private async Task StartDownloadFlow()
+    {
+        if (_updateService == null || _currentUpdate == null) return;
+
+        UpdateActionButton.IsEnabled = false;
+        UpdateProgressArea.Visibility = Visibility.Visible;
+        UpdateDetailsText.Text = "DESCARGANDO NUEVO EJECUTABLE...";
+
+        try
+        {
+            var progress = new Progress<double>(p =>
+            {
+                UpdateProgressBar.Value = p;
+                UpdateProgressText.Text = $"DESCARGANDO: {p:F0}%";
+            });
+
+            _downloadedPath = await _updateService.DownloadUpdateAsync(progress);
+
+            UpdateStatusText.Text = "ESTADO: LISTO PARA INSTALAR";
+            UpdateStatusText.Foreground = (System.Windows.Media.Brush)FindResource("AccentBrush");
+            UpdateDetailsText.Text = "DESCARGA COMPLETADA CON ÉXITO";
+            UpdateActionButton.Content = "[ REINICIAR ]";
+            UpdateProgressArea.Visibility = Visibility.Collapsed;
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusText.Text = "ESTADO: ERROR EN DESCARGA";
+            UpdateDetailsText.Text = "FALLÓ LA DESCARGA DEL ARCHIVO";
+            LoggerService.Log($"AboutWindow.StartDownloadFlow - Error: {ex.Message}");
+        }
+        finally
+        {
+            UpdateActionButton.IsEnabled = true;
+        }
     }
 
     private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)

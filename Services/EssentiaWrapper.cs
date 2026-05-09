@@ -89,24 +89,66 @@ public class EssentiaWrapper
             double confidence = 0;
             if (rhythm.TryGetProperty("beats_confidence", out var confProp))
             {
-                confidence = confProp.GetDouble();
+                if (confProp.ValueKind == JsonValueKind.Object)
+                {
+                    if (confProp.TryGetProperty("mean", out var confMean))
+                        confidence = confMean.GetDouble();
+                }
+                else if (confProp.ValueKind == JsonValueKind.Number)
+                {
+                    confidence = confProp.GetDouble();
+                }
             }
             else if (rhythm.TryGetProperty("bpm_histogram_first_peak_weight", out var weightProp))
             {
                 // Fallback to histogram weight as a proxy for confidence
-                if (weightProp.TryGetProperty("mean", out var meanWeight))
+                if (weightProp.ValueKind == JsonValueKind.Object)
                 {
-                    confidence = meanWeight.GetDouble();
+                    if (weightProp.TryGetProperty("mean", out var meanWeight))
+                        confidence = meanWeight.GetDouble();
                 }
+                else if (weightProp.ValueKind == JsonValueKind.Number)
+                {
+                    confidence = weightProp.GetDouble();
+                }
+            }
+
+            double rawBpm = 0;
+            if (rhythm.TryGetProperty("bpm", out var bpmProp))
+            {
+                rawBpm = bpmProp.ValueKind == JsonValueKind.Object
+                    ? (bpmProp.TryGetProperty("mean", out var bpmMean) ? bpmMean.GetDouble() : 0)
+                    : (bpmProp.ValueKind == JsonValueKind.Number ? bpmProp.GetDouble() : 0);
             }
 
             var result = new BpmAnalysisResult
             {
-                PrimaryBpm = rhythm.TryGetProperty("bpm", out var bpmProp) ? bpmProp.GetDouble() : 0,
+                PrimaryBpm = rawBpm,
                 Confidence = confidence,
                 EngineVersion = "Essentia-2013-Static",
                 AnalysisTimestamp = DateTime.UtcNow
             };
+
+            // Histogram peak data for cross-validation
+            if (rhythm.TryGetProperty("bpm_histogram_first_peak_bpm", out var peak1Bpm))
+                result.HistogramPeak1Bpm = peak1Bpm.ValueKind == JsonValueKind.Object
+                    ? (peak1Bpm.TryGetProperty("mean", out var m1) ? m1.GetDouble() : 0)
+                    : peak1Bpm.GetDouble();
+
+            if (rhythm.TryGetProperty("bpm_histogram_first_peak_weight", out var peak1W))
+                result.HistogramPeak1Weight = peak1W.ValueKind == JsonValueKind.Object
+                    ? (peak1W.TryGetProperty("mean", out var w1) ? w1.GetDouble() : 0)
+                    : peak1W.GetDouble();
+
+            if (rhythm.TryGetProperty("bpm_histogram_second_peak_bpm", out var peak2Bpm))
+                result.HistogramPeak2Bpm = peak2Bpm.ValueKind == JsonValueKind.Object
+                    ? (peak2Bpm.TryGetProperty("mean", out var m2) ? m2.GetDouble() : 0)
+                    : peak2Bpm.GetDouble();
+
+            if (rhythm.TryGetProperty("bpm_histogram_second_peak_weight", out var peak2W))
+                result.HistogramPeak2Weight = peak2W.ValueKind == JsonValueKind.Object
+                    ? (peak2W.TryGetProperty("mean", out var w2) ? w2.GetDouble() : 0)
+                    : peak2W.GetDouble();
 
             if (rhythm.TryGetProperty("beats_position", out var beatsPos))
             {
@@ -114,6 +156,17 @@ public class EssentiaWrapper
                 {
                     result.BeatTimesSeconds.Add(beat.GetDouble());
                 }
+            }
+
+            if (rhythm.TryGetProperty("beats_count", out var bcProp))
+            {
+                result.BeatsCount = bcProp.ValueKind == JsonValueKind.Number
+                    ? bcProp.GetInt32()
+                    : result.BeatTimesSeconds.Count;
+            }
+            else
+            {
+                result.BeatsCount = result.BeatTimesSeconds.Count;
             }
 
             if (rhythm.TryGetProperty("beats_intervals", out var intervals))

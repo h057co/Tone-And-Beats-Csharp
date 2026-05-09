@@ -52,4 +52,29 @@ public class BpmAnalysisResult
     /// When the analysis was performed.
     /// </summary>
     public DateTime AnalysisTimestamp { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// BPM of the dominant histogram peak (from Essentia bpm_histogram_first_peak_bpm).
+    /// </summary>
+    public double HistogramPeak1Bpm { get; set; }
+
+    /// <summary>
+    /// Weight of the dominant histogram peak (0.0 - 1.0).
+    /// </summary>
+    public double HistogramPeak1Weight { get; set; }
+
+    /// <summary>
+    /// BPM of the second histogram peak.
+    /// </summary>
+    public double HistogramPeak2Bpm { get; set; }
+
+    /// <summary>
+    /// Weight of the second histogram peak (0.0 - 1.0).
+    /// </summary>
+    public double HistogramPeak2Weight { get; set; }
+
+    /// <summary>
+    /// Total number of beats detected by Essentia.
+    /// </summary>
+    public int BeatsCount { get; set; }
 }

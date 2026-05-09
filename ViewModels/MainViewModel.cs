@@ -22,6 +22,7 @@ public class MainViewModel : ViewModelBase
     private readonly ILoudnessAnalyzerService _loudnessAnalyzerService;
     private readonly IAudioAnalysisPipeline _audioAnalysisPipeline;
     private readonly IToneGeneratorService _toneGeneratorService;
+    private readonly IUpdateService _updateService;
     private readonly MetadataWriter _metadataWriter;
     private readonly System.Windows.Threading.DispatcherTimer _bpmTimer;
 
@@ -123,7 +124,8 @@ public class MainViewModel : ViewModelBase
         ILoudnessAnalyzerService loudnessAnalyzerService,
         IAudioAnalysisPipeline audioAnalysisPipeline,
         IToneGeneratorService toneGeneratorService,
-        IDependencyService dependencyService)
+        IDependencyService dependencyService,
+        IUpdateService updateService)
     {
         _audioPlayerService = audioPlayerService;
         _bpmDetectorService = bpmDetectorService;
@@ -136,6 +138,7 @@ public class MainViewModel : ViewModelBase
         _toneGeneratorService = toneGeneratorService;
         _toneGenerator = toneGeneratorService;
         _dependencyService = dependencyService;
+        _updateService = updateService;
         _metadataWriter = new MetadataWriter();
 
         _bpmTimer = new System.Windows.Threading.DispatcherTimer();
@@ -153,6 +156,7 @@ public class MainViewModel : ViewModelBase
     }
 
     public RelayCommand ResolveDependenciesCommand { get; }
+    public IUpdateService UpdateService => _updateService;
 
     private async Task ResolveDependenciesAsync()
     {

@@ -21,14 +21,25 @@ public class AudioPreprocessor
             {
                 using var reader = new AudioFileReader(inputFilePath);
                 
+                // Segment extraction: start at 30s if the track is long enough
+                if (reader.TotalTime.TotalSeconds > 45)
+                {
+                    // For tracks < 90s, ensure we don't seek past the end
+                    double startSec = Math.Min(30, reader.TotalTime.TotalSeconds - 15);
+                    reader.CurrentTime = TimeSpan.FromSeconds(startSec);
+                }
+                
                 // Resample to 44100
                 var resampler = new WdlResamplingSampleProvider(reader, 44100);
                 
                 // Convert to Mono if needed
                 var mono = resampler.ToMono();
 
+                // Take up to 60 seconds of audio
+                var segment = mono.Take(TimeSpan.FromSeconds(60));
+
                 // Write to WAV
-                WaveFileWriter.CreateWaveFile(tempPath, mono.ToWaveProvider());
+                WaveFileWriter.CreateWaveFile16(tempPath, segment);
             });
 
             return tempPath;
