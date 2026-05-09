@@ -28,13 +28,16 @@ public partial class App : Application
     private void Application_Startup(object sender, StartupEventArgs e)
     {
         // Create services (in a real app, use a DI container like Microsoft.Extensions.DependencyInjection)
+        IDependencyService dependencyService = new DependencyService();
+        var essentiaWrapper = new EssentiaWrapper(dependencyService);
         IAudioPlayerService audioPlayerService = new AudioPlayerService();
-        IBpmDetectorService bpmDetectorService = new BpmDetector();
-        IKeyDetectorService keyDetectorService = new KeyDetector();
+        IBpmDetectorService bpmDetectorService = new BpmDetector(essentiaWrapper);
+        IKeyDetector keyDetectorService = new KeyDetector();
         IWaveformAnalyzerService waveformAnalyzerService = new WaveformAnalyzer();
         IFilePickerService filePickerService = new FilePickerService();
         IMessageBoxService messageBoxService = new MessageBoxService();
-        ILoudnessAnalyzerService loudnessAnalyzerService = new LoudnessAnalyzer();
+        ILoudnessAnalyzerService loudnessAnalyzerService = new LoudnessAnalyzer(dependencyService);
+        IToneGeneratorService toneGeneratorService = new ToneGeneratorService();
         IAudioAnalysisPipeline analysisPipeline = new AudioAnalysisPipeline(
             bpmDetectorService,
             keyDetectorService,
@@ -50,7 +53,9 @@ public partial class App : Application
             filePickerService,
             messageBoxService,
             loudnessAnalyzerService,
-            analysisPipeline);
+            analysisPipeline,
+            toneGeneratorService,
+            dependencyService);
 
         // Create and show MainWindow
         var mainWindow = new MainWindow

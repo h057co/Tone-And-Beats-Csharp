@@ -21,6 +21,7 @@ public class LevelToBrushConverter : IValueConverter
             "Good"    => new SolidColorBrush(Color.FromRgb(100, 200, 100)),  // Green
             "Warning" => new SolidColorBrush(Color.FromRgb(255, 200, 100)),  // Yellow
             "Danger"  => new SolidColorBrush(Color.FromRgb(255, 100, 100)),  // Red
+            "Error"   => new SolidColorBrush(Color.FromRgb(255, 10, 10)),    // Bright Red
             _         => new SolidColorBrush(Color.FromRgb(102, 102, 102)),  // Gray/None
         };
     }

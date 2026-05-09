@@ -8,6 +8,7 @@
         <ResourceDictionary>
             <infra:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
             <infra:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
+            <infra:DoubleToVisibilityConverter x:Key="DoubleToVisibilityConverter"/>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Themes/DarkTheme.xaml"/>
             </ResourceDictionary.MergedDictionaries>

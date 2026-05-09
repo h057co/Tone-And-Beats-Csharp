@@ -9,19 +9,101 @@ namespace AudioAnalyzer.Services;
 public class BpmDetector : IBpmDetectorService
 {
     private readonly WaveformAnalyzer _waveformAnalyzer = new();
+    private readonly EssentiaWrapper _essentiaWrapper;
+    private readonly AudioPreprocessor _preprocessor = new();
+
+    public BpmDetector(EssentiaWrapper essentiaWrapper)
+    {
+        _essentiaWrapper = essentiaWrapper;
+    }
 
     public async Task<(double PrimaryBpm, double AlternativeBpm)> DetectBpmAsync(string filePath, IProgress<int>? progress = null, BpmRangeProfile profile = BpmRangeProfile.Auto)
     {
         try
         {
-            var (monoSamples, sampleRate) = new AudioDataProvider().LoadMono(filePath);
-            return await Task.Run(() => DetectBpmFromSamples(monoSamples, sampleRate, progress, profile));
+            LoggerService.Log($"BpmDetector.DetectBpmAsync - Using high-precision Essentia engine for {Path.GetFileName(filePath)}");
+            progress?.Report(10);
+
+            // 1. Preprocess (Resample to 44.1k)
+            var preparedPath = await _preprocessor.PrepareForEssentiaAsync(filePath);
+            if (preparedPath == null)
+            {
+                LoggerService.Log("BpmDetector - Preprocessing failed, falling back to legacy engine.");
+                var (legacyP, legacyA) = await DetectLegacyAsync(filePath, progress, profile);
+                return (legacyP, legacyA);
+            }
+
+            progress?.Report(30);
+
+            // 2. Essentia Analysis
+            var essentiaResult = await _essentiaWrapper.AnalyzeAsync(preparedPath);
+            
+            // Cleanup temp file
+            if (File.Exists(preparedPath)) File.Delete(preparedPath);
+
+            if (essentiaResult == null || essentiaResult.PrimaryBpm <= 0)
+            {
+                LoggerService.Log("BpmDetector - Essentia analysis failed or returned zero. Falling back.");
+                return await DetectLegacyAsync(filePath, progress, profile);
+            }
+
+            progress?.Report(70);
+
+            // 3. Apply Urban Strategy
+            var heuristic = new UrbanStrategyHeuristic();
+            essentiaResult = heuristic.Apply(essentiaResult);
+
+            LoggerService.Log($"BpmDetector - Final BPM: {essentiaResult.PrimaryBpm:F1} (Reinterpreted: {essentiaResult.IsReinterpreted})");
+            progress?.Report(100);
+
+            var altBpm = essentiaResult.AlternateBpms.FirstOrDefault();
+            if (altBpm == 0) altBpm = essentiaResult.PrimaryBpm * 2; // Simple fallback
+
+            return (essentiaResult.PrimaryBpm, altBpm);
         }
         catch (Exception ex)
         {
-            LoggerService.Log($"BpmDetector.DetectBpmAsync - Error: {ex.Message}");
+            LoggerService.Log($"BpmDetector.DetectBpmAsync - Critical Error: {ex.Message}");
             return (0, 0);
         }
+    }
+
+    public async Task<AudioAnalyzer.Models.BpmAnalysisResult?> DetectFullAnalysisAsync(string filePath, IProgress<int>? progress = null)
+    {
+        try
+        {
+            LoggerService.Log($"BpmDetector.DetectFullAnalysisAsync - Analyzing {Path.GetFileName(filePath)}");
+            progress?.Report(10);
+
+            var preparedPath = await _preprocessor.PrepareForEssentiaAsync(filePath);
+            if (preparedPath == null) return null;
+
+            progress?.Report(30);
+
+            var result = await _essentiaWrapper.AnalyzeAsync(preparedPath);
+            if (File.Exists(preparedPath)) File.Delete(preparedPath);
+
+            if (result == null) return null;
+
+            progress?.Report(80);
+
+            var heuristic = new UrbanStrategyHeuristic();
+            result = heuristic.Apply(result);
+
+            progress?.Report(100);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            LoggerService.Log($"BpmDetector.DetectFullAnalysisAsync failed: {ex.Message}");
+            return null;
+        }
+    }
+
+    private async Task<(double PrimaryBpm, double AlternativeBpm)> DetectLegacyAsync(string filePath, IProgress<int>? progress, BpmRangeProfile profile)
+    {
+        var (monoSamples, sampleRate) = new AudioDataProvider().LoadMono(filePath);
+        return await Task.Run(() => DetectBpmFromSamples(monoSamples, sampleRate, progress, profile));
     }
 
     public async Task<(double PrimaryBpm, double AlternativeBpm)> DetectBpmAsync(float[] monoSamples, int sampleRate, IProgress<int>? progress = null, BpmRangeProfile profile = BpmRangeProfile.Auto)

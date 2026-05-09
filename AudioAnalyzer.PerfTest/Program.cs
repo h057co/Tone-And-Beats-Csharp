@@ -12,92 +12,98 @@ class Program
         Console.WriteLine("=== PERFORMANCE AUDIT - Tone & Beats ===");
         Console.WriteLine();
 
-        string testFolder = @"..\..\..\Assets\audiotest";
+        string testFolder = @"O:\Desarrollos\audiotest";
         if (!Directory.Exists(testFolder))
         {
-            testFolder = @"..\..\Assets\audiotest";
+            testFolder = @"..\..\..\Assets\audiotest";
+            if (!Directory.Exists(testFolder))
+            {
+                testFolder = @"..\..\Assets\audiotest";
+            }
         }
         
-        var files = Directory.GetFiles(testFolder).OrderBy(f => f).ToArray();
+        var files = Directory.GetFiles(testFolder)
+            .Where(f => !f.EndsWith(".bak") && !f.EndsWith(".bk"))
+            .OrderBy(f => f)
+            .ToArray();
         
         Console.WriteLine($"Archivos encontrados: {files.Length}");
-        foreach (var f in files)
-        {
-            var fi = new FileInfo(f);
-            Console.WriteLine($"  - {Path.GetFileName(f)} ({fi.Length / 1024.0 / 1024.0:F2} MB)");
-        }
         Console.WriteLine();
 
         var results = new List<PerformanceResult>();
-        
-        var initialMemory = GC.GetTotalMemory(true);
-        Console.WriteLine($"Memoria inicial: {initialMemory / 1024.0 / 1024.0:F2} MB");
-        
         var stopwatchTotal = Stopwatch.StartNew();
         
-        var bpmDetector = new BpmDetector();
-        var keyDetector = new KeyDetector();
-        var loudnessAnalyzer = new LoudnessAnalyzer();
-        var waveformAnalyzer = new WaveformAnalyzer();
+        var dependencyService = new DependencyService();
+        
+        if (!dependencyService.IsEssentiaAvailable())
+        {
+            Console.WriteLine("Essentia binary missing. Downloading...");
+            await dependencyService.DownloadEssentiaAsync(null!);
+            Console.WriteLine("Essentia binary ready.");
+        }
 
-        long peakMemory = 0;
+        var essentiaWrapper = new EssentiaWrapper(dependencyService);
+        var bpmDetector = new BpmDetector(essentiaWrapper);
+        var keyDetector = new KeyDetector();
+        var loudnessAnalyzer = new LoudnessAnalyzer(dependencyService);
+        var waveformAnalyzer = new WaveformAnalyzer();
 
         for (int i = 0; i < files.Length; i++)
         {
             string file = files[i];
             string fileName = Path.GetFileName(file);
-            FileInfo fileInfo = new FileInfo(file);
             
+            // Extract expected BPM from filename
+            double expectedBpm = 0;
+            var match = System.Text.RegularExpressions.Regex.Match(fileName, @"bpm\s+([0-9]+([.,][0-9]+)?)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (match.Success)
+            {
+                string val = match.Groups[1].Value.Replace(',', '.');
+                double.TryParse(val, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out expectedBpm);
+            }
+
             Console.WriteLine($"[{i+1}/{files.Length}] Procesando: {fileName}");
+            if (expectedBpm > 0) Console.WriteLine($"  Esperado: {expectedBpm} BPM");
             
             var stopwatch = Stopwatch.StartNew();
-            var process = Process.GetCurrentProcess();
-            long memBefore = process.WorkingSet64;
 
             try
             {
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
-                var bpmTask = Task.Run(() => bpmDetector.DetectBpm(file), cts.Token);
-                var keyTask = Task.Run(() => keyDetector.DetectKey(file), cts.Token);
-                var loudnessTask = Task.Run(() => loudnessAnalyzer.Analyze(file), cts.Token);
-                var waveformTask = Task.Run(() => waveformAnalyzer.Analyze(file), cts.Token);
+                // We use DetectBpmAsync which returns (Primary, Alternative)
+                var bpmTask = bpmDetector.DetectBpmAsync(file);
                 
-                await Task.WhenAll(bpmTask, keyTask, loudnessTask, waveformTask);
+                await Task.WhenAll(bpmTask);
                 
                 stopwatch.Stop();
                 
-                process = Process.GetCurrentProcess();
-                long memAfter = process.WorkingSet64;
+                var (primaryBpm, altBpm) = bpmTask.Result;
                 
-                long memoryUsed = memAfter - memBefore;
-                if (memoryUsed > peakMemory) peakMemory = memoryUsed;
+                double error = expectedBpm > 0 ? Math.Abs(primaryBpm - expectedBpm) : 0;
+                bool isCorrect = expectedBpm > 0 ? error < 0.5 : true;
 
-                var bpm = bpmTask.Result;
-                var key = keyTask.Result;
-                var loudness = loudnessTask.Result;
+                // Handle common harmonic matches (Double/Half time)
+                bool isHarmonic = false;
+                if (!isCorrect && expectedBpm > 0)
+                {
+                    if (Math.Abs(primaryBpm * 2 - expectedBpm) < 0.5 || Math.Abs(primaryBpm / 2 - expectedBpm) < 0.5)
+                    {
+                        isHarmonic = true;
+                    }
+                }
 
-                Console.WriteLine($"  OK - Tiempo: {stopwatch.ElapsedMilliseconds} ms, BPM: {bpm:F1}, Key: {key.Key}/{key.Mode}, LUFS: {loudness.IntegratedLufs:F1}");
+                Console.WriteLine($"  OK - BPM: {primaryBpm:F1} (Alt: {altBpm:F1}) | Error: {error:F2}");
 
                 results.Add(new PerformanceResult
                 {
                     FileName = fileName,
-                    FileSizeMB = fileInfo.Length / 1024.0 / 1024.0,
                     DurationMs = (int)stopwatch.ElapsedMilliseconds,
-                    MemoryUsedMB = memoryUsed / 1024.0 / 1024.0,
-                    Success = true
-                });
-            }
-            catch (OperationCanceledException)
-            {
-                stopwatch.Stop();
-                Console.WriteLine($"  TIMEOUT: Archivo tardó más de 120 segundos");
-                results.Add(new PerformanceResult
-                {
-                    FileName = fileName,
-                    FileSizeMB = fileInfo.Length / 1024.0 / 1024.0,
-                    DurationMs = 120000,
-                    Success = false,
-                    Error = "Timeout"
+                    Success = true,
+                    DetectedBpm = primaryBpm,
+                    ExpectedBpm = expectedBpm,
+                    Error = error.ToString("F2"),
+                    IsCorrect = isCorrect,
+                    IsHarmonic = isHarmonic
                 });
             }
             catch (Exception ex)
@@ -107,71 +113,63 @@ class Program
                 results.Add(new PerformanceResult
                 {
                     FileName = fileName,
-                    FileSizeMB = fileInfo.Length / 1024.0 / 1024.0,
                     DurationMs = (int)stopwatch.ElapsedMilliseconds,
                     Success = false,
-                    Error = ex.Message
+                    ErrorText = ex.Message
                 });
             }
 
             Console.WriteLine();
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
         }
 
         stopwatchTotal.Stop();
 
-        Console.WriteLine("===========================================");
-        Console.WriteLine("        RESUMEN DE PERFORMANCE             ");
-        Console.WriteLine("===========================================");
+        Console.WriteLine("===============================================");
+        Console.WriteLine("        AUDITORIA DE PRECISION BPM             ");
+        Console.WriteLine("===============================================");
         Console.WriteLine();
         
-        double throughput = files.Length / (stopwatchTotal.ElapsedMilliseconds / 1000.0 / 60.0);
-        Console.WriteLine($"Archivos procesados: {results.Count(r => r.Success)}/{files.Length}");
-        Console.WriteLine($"Tiempo total: {stopwatchTotal.ElapsedMilliseconds} ms ({stopwatchTotal.Elapsed.TotalSeconds:F2} s)");
-        Console.WriteLine($"Throughput: {throughput:F2} archivos/minuto");
-        Console.WriteLine($"Memoria pico: {peakMemory / 1024.0 / 1024.0:F2} MB");
-        Console.WriteLine();
-
-        Console.WriteLine("| # | Archivo           | Tamaño  | Tiempo  | Memoria |");
-        Console.WriteLine("|---|-------------------|---------|---------|----------|");
+        Console.WriteLine($"| #  | Archivo                | Esperado | Detectado | Error | Estado |");
+        Console.WriteLine("|----|------------------------|----------|-----------|-------|--------|");
         
         int idx = 1;
+        int correctCount = 0;
+        int totalWithExpected = 0;
+
         foreach (var r in results)
         {
-            string status = r.Success ? "OK" : "ERR";
-            string duration = r.Success ? $"{r.DurationMs,7} ms" : r.Error ?? "ERROR";
-            Console.WriteLine($"| {idx,2} | {r.FileName,-17} | {r.FileSizeMB,6:F2} MB | {duration,-7} | {r.MemoryUsedMB,6:F2} MB |");
+            string status = "N/A";
+            if (r.ExpectedBpm > 0)
+            {
+                totalWithExpected++;
+                if (r.IsCorrect) { status = "CORRECTO"; correctCount++; }
+                else if (r.IsHarmonic) status = "ARMONICO";
+                else status = "FALLO";
+            }
+
+            Console.WriteLine($"| {idx,2} | {r.FileName,-22} | {r.ExpectedBpm,8:F1} | {r.DetectedBpm,9:F1} | {r.Error,5} | {status,-8} |");
             idx++;
         }
 
-        var successful = results.Where(r => r.Success).ToList();
-        if (successful.Any())
+        Console.WriteLine();
+        if (totalWithExpected > 0)
         {
-            double avgTime = successful.Average(r => r.DurationMs);
-            double totalSize = successful.Sum(r => r.FileSizeMB);
-            double avgIoSpeed = totalSize / (stopwatchTotal.ElapsedMilliseconds / 1000.0);
-            
-            Console.WriteLine();
-            Console.WriteLine($"Promedio tiempo: {avgTime:F2} ms");
-            Console.WriteLine($"I/O estimada: {avgIoSpeed:F2} MB/s");
-            
-            bool recommendParallel = avgTime > 10000 && successful.Count > 2;
-            Console.WriteLine();
-            Console.WriteLine(recommendParallel 
-                ? "RECOMENDACION: Implementar multithreading" 
-                : "RENDIMIENTO: Aceptable para produccion");
+            double accuracy = (double)correctCount / totalWithExpected * 100;
+            Console.WriteLine($"Precision Total: {accuracy:F1}% ({correctCount}/{totalWithExpected})");
         }
+        Console.WriteLine($"Tiempo total: {stopwatchTotal.Elapsed.TotalSeconds:F2} s");
     }
 }
 
 class PerformanceResult
 {
     public string FileName { get; set; } = "";
-    public double FileSizeMB { get; set; }
     public long DurationMs { get; set; }
-    public double MemoryUsedMB { get; set; }
-    public double CpuUsedMs { get; set; }
     public bool Success { get; set; }
-    public string? Error { get; set; }
+    public double DetectedBpm { get; set; }
+    public double ExpectedBpm { get; set; }
+    public string Error { get; set; } = "";
+    public string? ErrorText { get; set; }
+    public bool IsCorrect { get; set; }
+    public bool IsHarmonic { get; set; }
 }

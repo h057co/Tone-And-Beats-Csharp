@@ -8,7 +8,7 @@ namespace AudioAnalyzer.Themes;
 /// </summary>
 public static class ThemeManager
 {
-    private static string _currentTheme = "Dark";
+    private static string _currentTheme = "Brutalist";
     
     private static readonly Dictionary<string, string> ThemeFiles = new()
     {
@@ -16,7 +16,8 @@ public static class ThemeManager
         { "Light", "Themes/LightTheme.xaml" },
         { "Blue", "Themes/BlueTheme.xaml" },
         { "iOS Light", "Themes/IosLightTheme.xaml" },
-        { "iOS Dark", "Themes/IosDarkTheme.xaml" }
+        { "iOS Dark", "Themes/IosDarkTheme.xaml" },
+        { "Brutalist", "Themes/BrutalistTheme.xaml" }
     };
 
     /// <summary>

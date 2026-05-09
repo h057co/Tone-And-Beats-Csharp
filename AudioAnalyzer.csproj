@@ -11,9 +11,9 @@
     <Description>Desktop application for detecting BPM and musical key in audio files</Description>
     <Company>Hostility Music</Company>
     <Copyright>Copyright 2026 Hostility Music</Copyright>
-     <Version>1.1.0</Version>
-     <FileVersion>1.1.0.0</FileVersion>
-     <AssemblyVersion>1.1.0.0</AssemblyVersion>
+     <Version>1.2.0</Version>
+     <FileVersion>1.2.0.0</FileVersion>
+     <AssemblyVersion>1.2.0.0</AssemblyVersion>
     <ApplicationIcon>Assets\HOSTBLANCO.ico</ApplicationIcon>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
@@ -48,26 +48,34 @@
     <EmbeddedResource Include="Assets\qrdonaciones.png" />
   </ItemGroup>
 
-   <!-- FFmpeg binaries for Loudness analysis (Always included to ensure 100% standalone functionality) -->
-   <ItemGroup>
-    <Content Include="..\dependencies\ffmpeg\ffmpeg.exe" CopyToOutputDirectory="PreserveNewest">
-      <Link>ffmpeg\ffmpeg.exe</Link>
-    </Content>
-    <Content Include="..\dependencies\ffmpeg\ffprobe.exe" CopyToOutputDirectory="PreserveNewest">
-      <Link>ffmpeg\ffprobe.exe</Link>
-    </Content>
-  </ItemGroup>
+    <!-- FFmpeg binaries for Loudness analysis (Always included to ensure 100% standalone functionality) -->
+    <ItemGroup>
+     <Content Include="dependencies\ffmpeg\ffmpeg.exe" CopyToOutputDirectory="PreserveNewest">
+       <Link>ffmpeg\ffmpeg.exe</Link>
+     </Content>
+     <Content Include="dependencies\ffmpeg\ffprobe.exe" CopyToOutputDirectory="PreserveNewest">
+       <Link>ffmpeg\ffprobe.exe</Link>
+     </Content>
+    </ItemGroup>
 
-  <!-- Build Validation Task: Verifica que assets críticos existan antes de compilar -->
-  <Target Name="ValidateCriticalAssets" BeforeTargets="Build">
-    <Message Text="[Asset Validation] Checking critical embedded resources..." Importance="high" />
-    <Error Condition="!Exists('Assets\qrdonaciones.png')" Text="CRITICAL: Assets\qrdonaciones.png not found. This file must exist as an EmbeddedResource." />
-    <Error Condition="!Exists('Assets\HOST_BLANCO.png')" Text="CRITICAL: Assets\HOST_BLANCO.png not found. This file must exist as an EmbeddedResource." />
-    <Error Condition="!Exists('Assets\HOST_NEGRO.png')" Text="CRITICAL: Assets\HOST_NEGRO.png not found. This file must exist as an EmbeddedResource." />
-    <Error Condition="!Exists('..\dependencies\ffmpeg\ffmpeg.exe')" Text="CRITICAL: ffmpeg.exe no encontrado. Es necesario para que LUFS/LoudnessAnalyzer funcione en producción." />
-    <Error Condition="!Exists('..\dependencies\ffmpeg\ffprobe.exe')" Text="CRITICAL: ffprobe.exe no encontrado." />
-    <Message Text="[Asset Validation] ✓ All critical assets present" Importance="high" />
-  </Target>
+    <!-- Essentia binaries for BPM analysis -->
+    <ItemGroup>
+      <Content Include="dependencies\Essentia\essentia_streaming_extractor_music.exe" CopyToOutputDirectory="PreserveNewest">
+        <Link>essentia\streaming_extractor_music.exe</Link>
+      </Content>
+    </ItemGroup>
+ 
+   <!-- Build Validation Task: Verifica que assets críticos existan antes de compilar -->
+   <Target Name="ValidateCriticalAssets" BeforeTargets="Build">
+     <Message Text="[Asset Validation] Checking critical embedded resources..." Importance="high" />
+     <Error Condition="!Exists('Assets\qrdonaciones.png')" Text="CRITICAL: Assets\qrdonaciones.png not found. This file must exist as an EmbeddedResource." />
+     <Error Condition="!Exists('Assets\HOST_BLANCO.png')" Text="CRITICAL: Assets\HOST_BLANCO.png not found. This file must exist as an EmbeddedResource." />
+     <Error Condition="!Exists('Assets\HOST_NEGRO.png')" Text="CRITICAL: Assets\HOST_NEGRO.png not found. This file must exist as an EmbeddedResource." />
+     <Error Condition="!Exists('dependencies\ffmpeg\ffmpeg.exe')" Text="CRITICAL: ffmpeg.exe no encontrado. Es necesario para que LUFS/LoudnessAnalyzer funcione en producción." />
+     <Error Condition="!Exists('dependencies\ffmpeg\ffprobe.exe')" Text="CRITICAL: ffprobe.exe no encontrado." />
+     <Error Condition="!Exists('dependencies\Essentia\essentia_streaming_extractor_music.exe')" Text="CRITICAL: essentia_streaming_extractor_music.exe no encontrado. Es necesario para el motor de BPM." />
+     <Message Text="[Asset Validation] ✓ All critical assets present" Importance="high" />
+   </Target>
 
   <!-- Post-Build Validation: Verifica que el assembly incluya los embedded resources -->
   <Target Name="ValidateEmbeddedResources" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
@@ -75,4 +83,10 @@
     <Message Text="[Post-Build Validation] ✓ Build completed successfully with embedded resources" Importance="high" />
   </Target>
 
+  <ItemGroup>
+    <Compile Remove="scratch\**" />
+    <Compile Remove="specs\**" />
+    <None Include="scratch\**" />
+    <None Include="specs\**" />
+  </ItemGroup>
 </Project>

@@ -3,6 +3,7 @@
     
     <!-- Dark Theme Colors -->
     <SolidColorBrush x:Key="BackgroundBrush" Color="#1E1E2E"/>
+    <FontFamily x:Key="AppFontFamily">Segoe UI, Roboto, Helvetica, Arial</FontFamily>
     <SolidColorBrush x:Key="ForegroundBrush" Color="#E0E0E0"/>
     <SolidColorBrush x:Key="AccentBrush" Color="#6A5ACD"/>
     <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="#4A90D9"/>
@@ -21,12 +22,19 @@
     <SolidColorBrush x:Key="PlayheadBrush" Color="#FF6B6B"/>
     
     <!-- Semantic State Brushes (Audit Fix #6 - ViewModel decoupling) -->
-    <SolidColorBrush x:Key="StatusForegroundBrush" Color="#666666"/>
+    <SolidColorBrush x:Key="StatusForegroundBrush" Color="#A0A0A0"/>
     <SolidColorBrush x:Key="StatusSuccessBrush" Color="#64C864"/>
     <SolidColorBrush x:Key="StatusErrorBrush" Color="#FF6464"/>
     <SolidColorBrush x:Key="FileNameInactiveBrush" Color="#888888"/>
     <SolidColorBrush x:Key="FileNameActiveBrush" Color="#E0E0E0"/>
     <SolidColorBrush x:Key="BpmModifiedBrush" Color="#FF6B6B"/>
+    <SolidColorBrush x:Key="BpmSwappedBrush" Color="#00FFFF"/>
+    
+    <!-- UI Metrics -->
+    <CornerRadius x:Key="WindowCornerRadius">10</CornerRadius>
+    <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
+    <Thickness x:Key="MainBorderThickness">0</Thickness>
+    <Thickness x:Key="ControlBorderThickness">0</Thickness>
     
     <!-- ComboBox Specific Brushes -->
     <SolidColorBrush x:Key="ComboBoxBackgroundBrush" Color="#1E1E2E"/>

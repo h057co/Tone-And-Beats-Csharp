@@ -8,8 +8,8 @@
         xmlns:infra="clr-namespace:AudioAnalyzer.Infrastructure"
         mc:Ignorable="d"
         Title="Tone &amp; Beats by Hostility" 
-        Width="400" Height="720"
-        MinWidth="300" MinHeight="650"
+        Width="490" Height="720"
+        MinWidth="490" MinHeight="650"
         WindowStartupLocation="CenterScreen" 
         WindowStyle="None"
         AllowsTransparency="True"
@@ -18,6 +18,7 @@
         AllowDrop="True"
         StateChanged="Window_StateChanged"
         SizeChanged="Window_SizeChanged"
+        FontFamily="{DynamicResource AppFontFamily}"
         DragEnter="Window_DragEnter"
         DragLeave="Window_DragLeave"
         Drop="Window_Drop"
@@ -33,6 +34,10 @@
     </WindowChrome.WindowChrome>
     
     <Window.Resources>
+        <infra:ScaleNoteHighlightConverter x:Key="ScaleNoteHighlightConverter"/>
+        <infra:LevelToBrushConverter x:Key="LevelToBrushConverter"/>
+        <infra:PlayScaleTextConverter x:Key="PlayScaleTextConverter"/>
+        <infra:InverseBoolConverter x:Key="InverseBoolConverter"/>
         <Style TargetType="Button">
             <Setter Property="Background" Value="{DynamicResource ButtonBackgroundBrush}"/>
             <Setter Property="Foreground" Value="White"/>
@@ -69,6 +74,20 @@
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="{DynamicResource AnalyzeButtonHoverBrush}"/>
                 </Trigger>
+                <DataTrigger Binding="{Binding IsAnalyzingInProgress}" Value="True">
+                    <DataTrigger.EnterActions>
+                        <BeginStoryboard x:Name="PulseStoryboard">
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 From="1.0" To="0.6" Duration="0:0:0.5"
+                                                 AutoReverse="True" RepeatBehavior="Forever"/>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </DataTrigger.EnterActions>
+                    <DataTrigger.ExitActions>
+                        <StopStoryboard BeginStoryboardName="PulseStoryboard"/>
+                    </DataTrigger.ExitActions>
+                </DataTrigger>
             </Style.Triggers>
         </Style>
         
@@ -96,9 +115,11 @@
         
         <Style x:Key="ResultBox" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource ResultBoxBackgroundBrush}"/>
-            <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="Padding" Value="15"/>
-            <Setter Property="Margin" Value="5"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}"/>
+            <Setter Property="BorderThickness" Value="{DynamicResource ControlBorderThickness}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="Padding" Value="{DynamicResource ControlPadding}"/>
+            <Setter Property="Margin" Value="{DynamicResource SectionMargin}"/>
         </Style>
         
         <!-- ComboBox ToggleButton Template -->
@@ -208,13 +229,15 @@
             </Setter>
         </Style>
 
-        <infra:LevelToBrushConverter x:Key="LevelToBrushConverter"/>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
     </Window.Resources>
     
     <!-- Window Container: Border with rounded corners and shadow -->
     <Border Background="{DynamicResource BackgroundBrush}"
-            CornerRadius="10"
-            Margin="10">
+            CornerRadius="{DynamicResource WindowCornerRadius}"
+            Margin="10"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="{DynamicResource MainBorderThickness}">
         <Border.Effect>
             <DropShadowEffect BlurRadius="20" ShadowDepth="3" Opacity="0.4" Color="Black"/>
         </Border.Effect>
@@ -226,23 +249,40 @@
             </Grid.RowDefinitions>
             
             <!-- Row 0: Custom Title Bar (24px) -->
-            <Border Grid.Row="0" Background="#1a1a1a" CornerRadius="10,10,0,0">
+            <Border Grid.Row="0" Background="{DynamicResource HeaderBackgroundBrush}" CornerRadius="{DynamicResource WindowCornerRadius}">
                 <Grid MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     
                     <!-- Title -->
-                    <TextBlock Text="Tone &amp; Beats by Hostility" 
-                               Foreground="White" 
-                               VerticalAlignment="Center" 
-                               Margin="10,0,0,0"
-                               FontSize="11"
-                               FontWeight="Medium"/>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+                        <TextBlock Text="TONE&amp;BEATS.EXE" 
+                                   Foreground="White" 
+                                   FontSize="16"
+                                   FontWeight="ExtraBold"
+                                   FontFamily="{DynamicResource TerminalFont}"/>
+                        <TextBlock Text=" [ AUDIO ANALYZER v1.3 ]" 
+                                   Foreground="{DynamicResource TextSecondaryBrush}" 
+                                   VerticalAlignment="Bottom"
+                                   Margin="5,0,0,2"
+                                   FontSize="9"
+                                   FontFamily="{DynamicResource TerminalFont}"/>
+                    </StackPanel>
                     
+                    <!-- System Status (Simulated CLI) -->
+                    <Border Grid.Column="1" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" 
+                            Margin="0,2,15,2" Padding="8,2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="SYSTEM STATUS" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="OK" FontSize="10" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
                     <!-- Window Buttons -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
                         <!-- Minimize -->
                         <Button Content="─" Width="32" Height="24" 
                                 WindowChrome.IsHitTestVisibleInChrome="True"
@@ -334,7 +374,7 @@
             </Border>
             
             <!-- Row 1: Main Content (scales uniformly when height is insufficient) -->
-            <Grid x:Name="ContentGrid" Grid.Row="1" Margin="5">
+            <Grid x:Name="ContentGrid" Grid.Row="1" Margin="{DynamicResource MainPadding}">
                 <Grid.LayoutTransform>
                     <ScaleTransform x:Name="ContentScale" ScaleX="1" ScaleY="1"/>
                 </Grid.LayoutTransform>
@@ -356,7 +396,7 @@
                 </Grid.ColumnDefinitions>
         
         <!-- Row 0: Title centered with floating Theme Button -->
-        <Grid Grid.Row="0" Margin="0,5,0,5">
+        <Grid Grid.Row="0" Margin="{DynamicResource SectionMargin}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
@@ -405,22 +445,39 @@
         </Border>
         
         <!-- Row 2: Audio File Info (Dynamic Summary) -->
-        <Border Grid.Row="2" Background="{DynamicResource ResultBoxBackgroundBrush}" CornerRadius="8" Padding="15,12">
+        <Border Grid.Row="2" Style="{StaticResource ResultBox}">
             <TextBlock Text="{Binding AudioInfoSummary}" 
-                       FontSize="14" 
-                       FontWeight="Medium"
+                       FontSize="11" 
+                       FontWeight="Bold"
                        Foreground="{DynamicResource ForegroundBrush}"
                        HorizontalAlignment="Center"
-                       VerticalAlignment="Center"/>
+                       VerticalAlignment="Center"
+                       FontFamily="{DynamicResource TerminalFont}"/>
         </Border>
         
         <!-- Row 3: Waveform (with playhead) -->
-        <Border Grid.Row="3" Style="{StaticResource ResultBox}" Padding="5" MinHeight="60">
-            <controls:WaveformControl x:Name="WaveformDisplay" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"/>
+        <Border Grid.Row="3" Style="{StaticResource ResultBox}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <!-- Waveform Header -->
+                <Grid Grid.Row="0" Margin="5,2">
+                    <TextBlock Text="WAVEFORM" FontSize="9" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontFamily="{DynamicResource TerminalFont}"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <TextBlock Text="DURATION: " FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" FontFamily="{DynamicResource TerminalFont}"/>
+                        <TextBlock Text="{Binding DurationText}" FontSize="8" Foreground="{DynamicResource ForegroundBrush}" FontFamily="{DynamicResource TerminalFont}"/>
+                    </StackPanel>
+                </Grid>
+                
+                <controls:WaveformControl Grid.Row="1" x:Name="WaveformDisplay" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" MinHeight="60"/>
+            </Grid>
         </Border>
         
         <!-- Row 4: Loudness (NEW) -->
-        <Border Grid.Row="4" Style="{StaticResource ResultBox}" Padding="15,12">
+        <Border Grid.Row="4" Style="{StaticResource ResultBox}" ToolTip="{Binding LoudnessResult.ErrorMessage}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -471,7 +528,7 @@
         </Border>
         
         <!-- Row 6: Status -->
-        <Border Grid.Row="6" Style="{StaticResource ResultBox}" Padding="10,8">
+        <Border Grid.Row="6" Style="{StaticResource ResultBox}">
             <TextBlock Text="{Binding StatusText}" 
                        FontSize="12" 
                        HorizontalAlignment="Center" 
@@ -493,9 +550,9 @@
         </Border>
         
         <!-- Row 7: BPM Range Selector -->
-         <Border Grid.Row="7" Style="{StaticResource ResultBox}" Padding="10,8">
+         <Border Grid.Row="7" Style="{StaticResource ResultBox}">
              <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                 <TextBlock Text="BPM Range:" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                  <TextBlock Text="BPM Range:" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="{DynamicResource ForegroundBrush}"/>
                  <ComboBox ItemsSource="{Binding AvailableBpmProfiles}" 
                            SelectedValue="{Binding SelectedBpmProfile}" 
                            SelectedValuePath="Key"
@@ -518,9 +575,9 @@
         <Border Grid.Row="8" Style="{StaticResource ResultBox}">
             <StackPanel HorizontalAlignment="Center">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <Button x:Name="AnalyzeButton" Content="🔍 Analyze Audio" Style="{StaticResource AnalyzeButton}" 
+                    <Button x:Name="AnalyzeButton" Content=">_ ANALYZE AUDIO" Style="{StaticResource AnalyzeButton}" 
                             Command="{Binding AnalyzeCommand}"/>
-                    <Button x:Name="SaveMetadataButton" Content="💾 Save to Metadata" Style="{StaticResource SaveMetadataButton}"
+                    <Button x:Name="SaveMetadataButton" Content="+ WRITE METADATA" Style="{StaticResource SaveMetadataButton}"
                             Margin="10,0,0,0"
                             Command="{Binding SaveMetadataCommand}"
                             IsEnabled="{Binding IsSaveMetadataEnabled}"/>
@@ -532,7 +589,26 @@
         </Border>
         
         <!-- Row 9: Results (BPM/Key) - Altura fija con filas explícitas -->
-        <Border Grid.Row="9" Style="{StaticResource ResultBox}" Padding="15,12">
+        <Border Grid.Row="9" CornerRadius="{DynamicResource ControlCornerRadius}" BorderThickness="{DynamicResource ControlBorderThickness}" BorderBrush="{DynamicResource BorderBrush}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource ResultBox}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasAnalysisResults}" Value="True">
+                            <DataTrigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                         From="0" To="1" Duration="0:0:0.3"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.EnterActions>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding HasAnalysisResults}" Value="False">
+                            <Setter Property="Opacity" Value="0.2"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -547,6 +623,12 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
+                <!-- Separador Vertical (Grid.Column 1) -->
+                <Border Grid.Column="1" Grid.RowSpan="4" 
+                        BorderBrush="{DynamicResource BorderBrush}" 
+                        BorderThickness="1,0,0,0" 
+                        HorizontalAlignment="Center" Margin="10,5"/>
+
                 <!-- ========== BPM Column ========== -->
                 <!-- Header BPM (Row 0) -->
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="BPM" FontSize="12"
@@ -554,10 +636,11 @@
                            Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,2"/>
 
                 <!-- Valor BPM (Row 1) -->
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding BpmDisplayText}" FontSize="32" FontWeight="Bold"
-                          HorizontalAlignment="Center" TextAlignment="Center"
-                          MouseLeftButtonDown="BpmText_LeftClick" Cursor="Hand"
-                          ToolTip="Click: ×2 → ÷2 → reset">
+                <TextBlock Grid.Row="1" Grid.Column="0" x:Name="BpmValueDisplay"
+                           Text="{Binding BpmDisplayText}" FontSize="32" FontWeight="Bold"
+                           HorizontalAlignment="Center" TextAlignment="Center"
+                           MouseLeftButtonDown="BpmText_LeftClick" Cursor="Hand"
+                           ToolTip="Click: ×2 → ÷2 → reset">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
                             <Setter Property="Foreground" Value="{DynamicResource TitleBrush}"/>
@@ -565,30 +648,47 @@
                                 <DataTrigger Binding="{Binding IsBpmModified}" Value="True">
                                     <Setter Property="Foreground" Value="{DynamicResource BpmModifiedBrush}"/>
                                 </DataTrigger>
+                                <DataTrigger Binding="{Binding IsBpmSwapped}" Value="True">
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                 From="0.5" To="1.0" Duration="0:0:0.2"/>
+                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 From="0.9" To="1.0" Duration="0:0:0.2"/>
+                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 From="0.9" To="1.0" Duration="0:0:0.2"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </TextBlock.Style>
+                    <TextBlock.RenderTransform>
+                        <ScaleTransform ScaleX="1" ScaleY="1" CenterX="40" CenterY="20"/>
+                    </TextBlock.RenderTransform>
                 </TextBlock>
 
                 <!-- Confidence BPM (Row 2) -->
                 <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding BpmConfidence}" FontSize="9"
-                          HorizontalAlignment="Center" TextAlignment="Center"
-                          Foreground="{DynamicResource TextSecondaryBrush}"/>
+                           HorizontalAlignment="Center" TextAlignment="Center"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
 
                 <!-- Alternative BPM (Row 3) - espacio siempre reservado -->
                 <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding AlternativeBpmText}" FontSize="10" FontStyle="Italic"
-                          HorizontalAlignment="Center" TextAlignment="Center"
-                          Margin="0,2,0,0"
-                          MouseLeftButtonDown="BpmSwap_Click" Cursor="Hand"
-                          ToolTip="Click para intercambiar BPM"
-                          Visibility="{Binding AlternativeBpmText, Converter={StaticResource StringToVisibilityConverter}}"
-                          Foreground="{DynamicResource TextSecondaryBrush}"/>
+                           HorizontalAlignment="Center" TextAlignment="Center"
+                           Margin="0,2,0,0"
+                           MouseLeftButtonDown="BpmSwap_Click" Cursor="Hand"
+                           ToolTip="Click para intercambiar BPM"
+                           Visibility="{Binding AlternativeBpmText, Converter={StaticResource StringToVisibilityConverter}}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
 
                 <!-- ========== Swap Button (centro) ========== -->
                 <Button Grid.Row="1" Grid.Column="1" Grid.RowSpan="2" 
                         VerticalAlignment="Center" Width="24" Height="24"
                         ToolTip="Intercambiar BPM principal con alternativo"
-                        Click="BpmSwap_Click"
+                        Command="{Binding SwapBpmCommand}"
                         Cursor="Hand"
                         Visibility="{Binding CanSwapBpm, Converter={StaticResource BoolToVisibilityConverter}}">
                     <Button.Style>
@@ -620,51 +720,277 @@
 
                 <!-- ========== KEY Column ========== -->
                 <!-- Header KEY (Row 0) -->
-                <TextBlock Grid.Row="0" Grid.Column="2" Text="KEY" FontSize="12"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,2"/>
+                <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center">
+                    <TextBlock Text="KEY" FontSize="12"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,2"/>
+                    <Button Command="{Binding ToggleKeyboardCommand}" 
+                            Content="⌨" FontSize="10" Padding="4,0" Height="16" Margin="8,0,0,0"
+                            Style="{StaticResource SaveMetadataButton}" ToolTip="Ver escala en teclado"/>
+                </StackPanel>
 
                 <!-- Valor KEY (Row 1) -->
                 <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding KeyDisplayText}" FontSize="32" FontWeight="Bold"
                           Foreground="{DynamicResource KeyForegroundBrush}"
                           HorizontalAlignment="Center" TextAlignment="Center"
                           MouseLeftButtonDown="KeyText_Click" Cursor="Hand"
-                          ToolTip="Click para ver tonalidad relativa"/>
+                          ToolTip="Click para ver tonalidad relativa">
+                    <TextBlock.Effect>
+                        <DropShadowEffect Color="Magenta" BlurRadius="12" ShadowDepth="0" Opacity="0.5"/>
+                    </TextBlock.Effect>
+                </TextBlock>
 
                 <!-- Confidence KEY (Row 2) -->
-                <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding KeyConfidence}" FontSize="9"
-                          HorizontalAlignment="Center" TextAlignment="Center"
-                          Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <StackPanel Grid.Row="2" Grid.Column="2" HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding KeyConfidence}" FontSize="9"
+                              HorizontalAlignment="Center" TextAlignment="Center"
+                              Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <ProgressBar Value="{Binding KeyConfidenceValue}" Height="2" Width="40" 
+                                 Background="{DynamicResource ProgressBarBackgroundBrush}"
+                                 Foreground="{DynamicResource KeyForegroundBrush}"
+                                 BorderThickness="0" Margin="0,1,0,0"
+                                 Visibility="{Binding KeyConfidenceValue, Converter={StaticResource DoubleToVisibilityConverter}}"/>
+                </StackPanel>
 
-                <!-- Placeholder vacío (Row 3) para paridad -->
-                <TextBlock Grid.Row="3" Grid.Column="2" Text="" FontSize="10"/>
+                <!-- Tuning KEY (Row 3) -->
+                <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding TuningText}" FontSize="9"
+                          HorizontalAlignment="Center" TextAlignment="Center">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsTuningOff}" Value="True">
+                                    <Setter Property="Foreground" Value="#FFD700"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
             </Grid>
         </Border>
         
-        <!-- Row 10: Footer - Centrado vertical -->
-        <StackPanel Grid.Row="10" 
-                    HorizontalAlignment="Center" 
-                    VerticalAlignment="Center" 
-                    Margin="0,2">
-
-            <!-- Link - Primer línea -->
-            <TextBlock FontSize="10" HorizontalAlignment="Center">
-                <Hyperlink NavigateUri="https://www.hostilitymusic.com" 
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           RequestNavigate="Hyperlink_RequestNavigate">
-                    www.hostilitymusic.com
-                </Hyperlink>
-            </TextBlock>
-
-            <!-- About - Segunda línea (salto de línea) -->
-            <Button Content="Acerca De" Click="AboutButton_Click" 
-                    HorizontalAlignment="Center"
-                    Background="Transparent" BorderThickness="0"
-                    Foreground="{DynamicResource TextSecondaryBrush}"
-                    FontSize="10" Cursor="Hand" 
-                    Margin="0,2,0,0"/>
-        </StackPanel>
+        <!-- Row 10: Consolidated Technical Footer -->
+        <Border Grid.Row="10" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Margin="0,10,0,0" Padding="10,5">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- Left: Engine Info -->
+                <TextBlock Grid.Column="0" Text="{Binding FooterText}" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" FontFamily="{DynamicResource TerminalFont}"/>
+                
+                <!-- Center: Headroom & About -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                    <TextBlock Text="HEADROOM: " FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" FontFamily="{DynamicResource TerminalFont}"/>
+                    <TextBlock Text="{Binding HeadroomText}" FontSize="8" Foreground="{DynamicResource ForegroundBrush}" FontWeight="Bold" VerticalAlignment="Center" FontFamily="{DynamicResource TerminalFont}" Margin="0,0,15,0"/>
+                    
+                    <Button Content="[ ACERCA DE ]" Click="AboutButton_Click" 
+                            Background="Transparent" BorderThickness="0"
+                            Foreground="{DynamicResource AccentBrush}"
+                            FontSize="8" Cursor="Hand" VerticalAlignment="Center"
+                            FontFamily="{DynamicResource TerminalFont}"/>
+                </StackPanel>
+                
+                <!-- Right: Brand Link -->
+                <TextBlock Grid.Column="2" FontSize="8" HorizontalAlignment="Right" VerticalAlignment="Center" FontFamily="{DynamicResource TerminalFont}">
+                    <Hyperlink NavigateUri="https://www.hostilitymusic.com" 
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               RequestNavigate="Hyperlink_RequestNavigate"
+                               TextDecorations="None">
+                        HOSTILITYMUSIC.COM
+                    </Hyperlink>
+                </TextBlock>
+            </Grid>
+        </Border>
+    </Grid>
+    
+    <!-- Keyboard Overlay -->
+        <Grid Grid.Row="0" Grid.RowSpan="2" Background="#CC000000" Panel.ZIndex="1000">
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsKeyboardOverlayVisible}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <DataTrigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                         From="0" To="1" Duration="0:0:0.25"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.EnterActions>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+            
+            <Border Width="340" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Style="{StaticResource ResultBox}" Background="#111111" BorderThickness="2">
+                <Grid Margin="{DynamicResource MainPadding}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    
+                    <!-- Header -->
+                    <Grid Grid.Row="0" Margin="{DynamicResource SectionMargin}">
+                        <TextBlock Text="SCALE ANALYSIS / KEYBOARD VIEW" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" FontFamily="{DynamicResource TerminalFont}"/>
+                        <Button HorizontalAlignment="Right" Content="[ X ]" Command="{Binding CloseKeyboardCommand}"
+                                Background="Transparent" BorderThickness="0" Foreground="White" Cursor="Hand" FontFamily="{DynamicResource TerminalFont}"/>
+                    </Grid>
+                    
+                    <!-- Detected Key Info -->
+                    <Border Grid.Row="1" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Margin="{DynamicResource SectionMargin}" Padding="0,0,0,10">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <TextBlock Text="DETECTED KEY: " FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" FontFamily="{DynamicResource TerminalFont}"/>
+                            <Button Command="{Binding SwapKeyCommand}" Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand">
+                                <TextBlock Text="{Binding KeyDisplayText}" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource KeyForegroundBrush}" FontFamily="{DynamicResource TerminalFont}"
+                                           ToolTip="Click to swap with alternative result"/>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- Piano Keyboard Visualizer (Chromatic Brutalist) -->
+                    <Border Grid.Row="2" Height="120" Background="#111" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Margin="{DynamicResource SectionMargin}">
+                        <Grid Margin="5">
+                            <!-- White Keys -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/> <!-- C -->
+                                    <ColumnDefinition Width="*"/> <!-- D -->
+                                    <ColumnDefinition Width="*"/> <!-- E -->
+                                    <ColumnDefinition Width="*"/> <!-- F -->
+                                    <ColumnDefinition Width="*"/> <!-- G -->
+                                    <ColumnDefinition Width="*"/> <!-- A -->
+                                    <ColumnDefinition Width="*"/> <!-- B -->
+                                </Grid.ColumnDefinitions>
+                                
+                                <!-- C (0) -->
+                                <Border Grid.Column="0" Background="White" BorderBrush="#333" BorderThickness="1,1,0,1">
+                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=0}" Opacity="0.6"/>
+                                </Border>
+                                <!-- D (2) -->
+                                <Border Grid.Column="1" Background="White" BorderBrush="#333" BorderThickness="1,1,0,1">
+                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=2}" Opacity="0.6"/>
+                                </Border>
+                                <!-- E (4) -->
+                                <Border Grid.Column="2" Background="White" BorderBrush="#333" BorderThickness="1,1,0,1">
+                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=4}" Opacity="0.6"/>
+                                </Border>
+                                <!-- F (5) -->
+                                <Border Grid.Column="3" Background="White" BorderBrush="#333" BorderThickness="1,1,0,1">
+                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=5}" Opacity="0.6"/>
+                                </Border>
+                                <!-- G (7) -->
+                                <Border Grid.Column="4" Background="White" BorderBrush="#333" BorderThickness="1,1,0,1">
+                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=7}" Opacity="0.6"/>
+                                </Border>
+                                <!-- A (9) -->
+                                <Border Grid.Column="5" Background="White" BorderBrush="#333" BorderThickness="1,1,0,1">
+                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=9}" Opacity="0.6"/>
+                                </Border>
+                                <!-- B (11) -->
+                                <Border Grid.Column="6" Background="White" BorderBrush="#333" BorderThickness="1">
+                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=11}" Opacity="0.6"/>
+                                </Border>
+                            </Grid>
+                            
+                            <!-- Black Keys Overlay -->
+                            <Grid IsHitTestVisible="False">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/> <!-- C-D -->
+                                    <ColumnDefinition Width="*"/> <!-- D-E -->
+                                    <ColumnDefinition Width="*"/> <!-- E-F (Gap) -->
+                                    <ColumnDefinition Width="*"/> <!-- F-G -->
+                                    <ColumnDefinition Width="*"/> <!-- G-A -->
+                                    <ColumnDefinition Width="*"/> <!-- A-B -->
+                                    <ColumnDefinition Width="*"/> <!-- B-C (Gap) -->
+                                </Grid.ColumnDefinitions>
+                                
+                                <!-- C# (1) -->
+                                <Border Grid.Column="0" Width="24" Height="70" Background="Black" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,-12,0" Panel.ZIndex="10">
+                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=1}" Opacity="0.8"/>
+                                </Border>
+                                <!-- D# (3) -->
+                                <Border Grid.Column="1" Width="24" Height="70" Background="Black" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,-12,0" Panel.ZIndex="10">
+                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=3}" Opacity="0.8"/>
+                                </Border>
+                                <!-- F# (6) -->
+                                <Border Grid.Column="3" Width="24" Height="70" Background="Black" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,-12,0" Panel.ZIndex="10">
+                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=6}" Opacity="0.8"/>
+                                </Border>
+                                <!-- G# (8) -->
+                                <Border Grid.Column="4" Width="24" Height="70" Background="Black" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,-12,0" Panel.ZIndex="10">
+                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=8}" Opacity="0.8"/>
+                                </Border>
+                                <!-- A# (10) -->
+                                <Border Grid.Column="5" Width="24" Height="70" Background="Black" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,-12,0" Panel.ZIndex="10">
+                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=10}" Opacity="0.8"/>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- Controls -->
+                    <StackPanel Grid.Row="3" HorizontalAlignment="Center">
+                        <Button Command="{Binding PlayScaleCommand}" Style="{StaticResource AnalyzeButton}" Width="200">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding IsPlayingScale, Converter={StaticResource PlayScaleTextConverter}}" Margin="0,0,5,0"/>
+                                <TextBlock Text=" SCALE PREVIEW" />
+                            </StackPanel>
+                        </Button>
+                        <TextBlock Text="MONO SAWTHOOTH GENERATOR" FontSize="8" HorizontalAlignment="Center" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondaryBrush}" FontFamily="{DynamicResource TerminalFont}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+        
+        <!-- Dependency Resolution Overlay -->
+        <Grid Grid.Row="0" Grid.RowSpan="2" Background="#CC000000" Panel.ZIndex="2000">
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsDependencyMissing}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+            
+            <Border Width="380" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Style="{StaticResource ResultBox}" Background="#111111" BorderThickness="2">
+                <StackPanel Margin="{DynamicResource MainPadding}">
+                    <!-- Header -->
+                    <TextBlock Text="! CRITICAL DEPENDENCY MISSING" FontSize="14" FontWeight="Bold" Foreground="#ff5555" HorizontalAlignment="Center" Margin="0,0,0,15" FontFamily="{DynamicResource TerminalFont}"/>
+                    
+                    <TextBlock Text="Tone &amp; Beats requires FFmpeg binaries for Loudness analysis and advanced audio processing." 
+                               TextWrapping="Wrap" TextAlignment="Center" FontSize="11" Margin="0,0,0,20" Foreground="{DynamicResource ForegroundBrush}"/>
+                    
+                    <!-- Action -->
+                    <Button Content=">_ RESOLVE &amp; DOWNLOAD FFmpeg" 
+                            Command="{Binding ResolveDependenciesCommand}"
+                            Style="{StaticResource AnalyzeButton}"
+                            IsEnabled="{Binding IsDownloading, Converter={StaticResource InverseBoolConverter}}"
+                            HorizontalAlignment="Center" Width="280" Height="50"/>
+                    
+                    <!-- Progress -->
+                    <StackPanel Margin="0,20,0,0" Visibility="{Binding IsDownloading, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <TextBlock Text="DOWNLOADING BINARIES..." FontSize="9" HorizontalAlignment="Center" Margin="0,0,0,5" FontFamily="{DynamicResource TerminalFont}"/>
+                        <ProgressBar Value="{Binding DownloadProgress}" Maximum="100" Height="10" 
+                                     Foreground="{DynamicResource AccentBrush}" Background="{DynamicResource ProgressBarBackgroundBrush}"/>
+                        <TextBlock Text="{Binding DownloadProgress, StringFormat={}{0:F0}%}" FontSize="8" HorizontalAlignment="Center" Margin="0,5,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                    
+                    <TextBlock Text="* Requires active internet connection" FontSize="8" HorizontalAlignment="Center" Margin="0,20,0,0" Foreground="{DynamicResource TextSecondaryBrush}" FontFamily="{DynamicResource TerminalFont}"/>
+                </StackPanel>
+            </Border>
         </Grid>
     </Grid>
-    </Border>
+</Border>
 </Window>

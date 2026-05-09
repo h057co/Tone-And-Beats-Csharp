@@ -5,193 +5,233 @@
         Title="Acerca De - Tone And Beat's by Hostility"
         Height="910" Width="460"
         MinHeight="350" MinWidth="300"
-        SizeChanged="Window_SizeChanged"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
-        Background="{DynamicResource BackgroundBrush}"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
         infra:CornerResizeBehavior.EnableOnlyCornerResize="True">
 
+    <WindowChrome.WindowChrome>
+        <WindowChrome 
+            GlassFrameThickness="0"
+            ResizeBorderThickness="6"
+            CaptionHeight="0"/>
+    </WindowChrome.WindowChrome>
+
     <Window.Resources>
+        <infra:PlayScaleTextConverter x:Key="PlayScaleTextConverter"/>
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
+            <Setter Property="FontFamily" Value="{DynamicResource TerminalFont}"/>
         </Style>
+        
+        <Style x:Key="BrutalistSectionBorder" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Background" Value="{DynamicResource ResultBoxBackgroundBrush}"/>
+        </Style>
+
         <Style x:Key="KoFiButton" TargetType="Button">
-            <Setter Property="Background" Value="#9B8AC4"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Foreground" Value="Black"/>
             <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Padding" Value="20,8"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontFamily" Value="{DynamicResource TerminalFont}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                            <TextBlock Text="Invítame a una cosita? Click Aquí" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="White" BorderThickness="2" Padding="{TemplateBinding Padding}">
+                            <TextBlock Text="[ INVÍTAME A UNA COSITA? CLICK AQUÍ ]" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{TemplateBinding Foreground}"/>
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="White"/>
+                                <Setter Property="Foreground" Value="Black"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#A99AD4"/>
-                </Trigger>
-            </Style.Triggers>
         </Style>
     </Window.Resources>
-    <!-- Main container to allow z-index layering (content + overlay) -->
-    <Grid>
-        <Grid x:Name="ContentGrid" Margin="5">
-        <Grid.LayoutTransform>
-            <ScaleTransform x:Name="ContentScale" ScaleX="1" ScaleY="1"/>
-        </Grid.LayoutTransform>
+    
+    <Border x:Name="MainBorder" 
+            Background="{DynamicResource BackgroundBrush}" 
+            BorderBrush="{DynamicResource BorderBrush}" 
+            BorderThickness="1" 
+            Margin="0">
+        <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/> <!-- Custom Title Bar -->
+                <RowDefinition Height="*"/>    <!-- Content -->
             </Grid.RowDefinitions>
+
+            <!-- Custom Title Bar -->
+            <Grid Grid.Row="0" Height="30" Background="{DynamicResource ResultBoxBackgroundBrush}" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <TextBlock Text="ABOUT / TONE &amp; BEATS" 
+                           VerticalAlignment="Center" 
+                           Margin="15,0,0,0" 
+                           FontSize="10" 
+                           FontWeight="Bold" 
+                           Foreground="{DynamicResource AccentBrush}"/>
+                
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="[ X ]" 
+                            Click="CloseButton_Click" 
+                            Background="Transparent" 
+                            BorderThickness="0" 
+                            Foreground="White" 
+                            Width="40" 
+                            Cursor="Hand"
+                            FontFamily="{DynamicResource TerminalFont}"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- Main container -->
+            <Grid Grid.Row="1" x:Name="ContentGrid" Margin="15">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
                 <!-- Section 0: Title & Version -->
-        <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,10">
-            <TextBlock Text="Tone &amp; Beats by Hostility" FontSize="24" FontWeight="Bold" 
-                       Foreground="{DynamicResource TitleBrush}" HorizontalAlignment="Center"/>
-             <TextBlock x:Name="VersionText" Text="Versión 0.0.0" FontSize="12" 
-                        Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,5,0,0"/>
-        </StackPanel>
-        
-        <!-- Section 1: Brand Logo -->
-         <Image x:Name="LogoImageAbout" Grid.Row="1" Height="50" 
-                HorizontalAlignment="Center" Margin="0,5,0,15"/>
-        
-        <!-- Section 2: Libraries & Modules -->
-        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" MaxHeight="250">
-            <StackPanel>
-                <TextBlock Text="Librerías y Módulos:" FontSize="16" FontWeight="Bold" Margin="0,0,0,15"/>
+                <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,10">
+                    <TextBlock Text="TONE &amp; BEATS" FontSize="28" FontWeight="Bold" 
+                               Foreground="{DynamicResource TitleBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="BY HOSTILITY" FontSize="14" FontWeight="Bold" 
+                               Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" Margin="0,-5,0,0"/>
+                    <TextBlock x:Name="VersionText" Text="VERSION 1.1.0" FontSize="10" 
+                               Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                </StackPanel>
                 
-                <Border Background="{DynamicResource ResultBoxBackgroundBrush}" CornerRadius="6" Padding="12" Margin="0,0,0,8">
-                    <StackPanel>
-                         <TextBlock Text="NAudio" FontWeight="Bold" FontSize="13"/>
-                         <TextBlock Text="Autor: Mark Heath | Ms-PL" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                         <TextBlock FontSize="10">
-                             <Hyperlink NavigateUri="https://github.com/naudio/NAudio" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">GitHub</Hyperlink>
-                         </TextBlock>
-                     </StackPanel>
-                 </Border>
+                <!-- Section 1: Brand Logo -->
+                 <Image x:Name="LogoImageAbout" Grid.Row="1" Height="40" 
+                        HorizontalAlignment="Center" Margin="0,5,0,15"/>
                 
-                <Border Background="{DynamicResource ResultBoxBackgroundBrush}" CornerRadius="6" Padding="12" Margin="0,0,0,8">
-                    <StackPanel>
-                         <TextBlock Text="TagLibSharp" FontWeight="Bold" FontSize="13"/>
-                         <TextBlock Text="Autor: mono | LGPL-2.1" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                         <TextBlock FontSize="10">
-                             <Hyperlink NavigateUri="https://github.com/mono/taglib-sharp" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">GitHub</Hyperlink>
-                         </TextBlock>
-                     </StackPanel>
-                 </Border>
+                <!-- Section 2: Libraries & Modules -->
+                <Border Grid.Row="2" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="5" Background="{DynamicResource ResultBoxBackgroundBrush}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock Text=">_ LIBRARIES &amp; MODULES:" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" Margin="0,5,0,10"/>
+                            
+                            <Border Style="{StaticResource BrutalistSectionBorder}">
+                                <StackPanel>
+                                     <TextBlock Text="NAUDIO" FontWeight="Bold" FontSize="12"/>
+                                     <TextBlock Text="MARK HEATH | MS-PL" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                     <TextBlock FontSize="9">
+                                         <Hyperlink NavigateUri="https://github.com/naudio/NAudio" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">[ GITHUB ]</Hyperlink>
+                                     </TextBlock>
+                                 </StackPanel>
+                             </Border>
+                            
+                            <Border Style="{StaticResource BrutalistSectionBorder}">
+                                <StackPanel>
+                                     <TextBlock Text="TAGLIBSHARP" FontWeight="Bold" FontSize="12"/>
+                                     <TextBlock Text="MONO | LGPL-2.1" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                     <TextBlock FontSize="9">
+                                         <Hyperlink NavigateUri="https://github.com/mono/taglib-sharp" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">[ GITHUB ]</Hyperlink>
+                                     </TextBlock>
+                                 </StackPanel>
+                             </Border>
+                            
+                            <Border Style="{StaticResource BrutalistSectionBorder}">
+                                <StackPanel>
+                                     <TextBlock Text="SOUNDTOUCH.NET" FontWeight="Bold" FontSize="12"/>
+                                     <TextBlock Text="OLAF WOUDENBERG | LGPL-2.1" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                     <TextBlock FontSize="9">
+                                         <Hyperlink NavigateUri="https://github.com/owoudenberg/soundtouch.net" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">[ GITHUB ]</Hyperlink>
+                                     </TextBlock>
+                                 </StackPanel>
+                             </Border>
+                            
+                            <Border Style="{StaticResource BrutalistSectionBorder}">
+                                <StackPanel>
+                                     <TextBlock Text="FFMPEGCORE" FontWeight="Bold" FontSize="12"/>
+                                     <TextBlock Text="INDEXIS | LGPL-2.1" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                     <TextBlock FontSize="9">
+                                         <Hyperlink NavigateUri="https://github.com/rosenbjerg/FFMpegCore" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">[ GITHUB ]</Hyperlink>
+                                     </TextBlock>
+                                 </StackPanel>
+                             </Border>
+                            
+                            <Border Style="{StaticResource BrutalistSectionBorder}">
+                                <StackPanel>
+                                     <TextBlock Text="FFMPEG" FontWeight="Bold" FontSize="12"/>
+                                     <TextBlock Text="FFMPEG TEAM | GPL-3.0" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                     <TextBlock FontSize="9">
+                                         <Hyperlink NavigateUri="https://ffmpeg.org" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">[ FFMPEG.ORG ]</Hyperlink>
+                                     </TextBlock>
+                                 </StackPanel>
+                             </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
                 
-                <Border Background="{DynamicResource ResultBoxBackgroundBrush}" CornerRadius="6" Padding="12" Margin="0,0,0,8">
-                    <StackPanel>
-                         <TextBlock Text="SoundTouch.Net" FontWeight="Bold" FontSize="13"/>
-                         <TextBlock Text="Autor: Olaf Woudenberg | LGPL-2.1" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                         <TextBlock FontSize="10">
-                             <Hyperlink NavigateUri="https://github.com/owoudenberg/soundtouch.net" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">GitHub</Hyperlink>
-                         </TextBlock>
-                     </StackPanel>
-                 </Border>
+                <!-- Section 3: Support Message -->
+                <TextBlock Grid.Row="3" FontSize="10" 
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap"
+                           Margin="0,15,0,10">
+                    ESTE PROYECTO NACIÓ DE LAS GANAS DE COMPARTIR ALGO ÚTIL. SI TE GUSTA Y QUIERES APOYAR, TU DONACIÓN ME MOTIVA A SEGUIR INNOVANDO.
+                </TextBlock>
                 
-                <Border Background="{DynamicResource ResultBoxBackgroundBrush}" CornerRadius="6" Padding="12" Margin="0,0,0,8">
-                    <StackPanel>
-                         <TextBlock Text="MediaInfo.Wrapper.Core" FontWeight="Bold" FontSize="13"/>
-                         <TextBlock Text="Autor: MediaArea | BSD-2-Clause" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                         <TextBlock FontSize="10">
-                             <Hyperlink NavigateUri="https://github.com/MediaArea/MediaInfo" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">GitHub</Hyperlink>
-                         </TextBlock>
-                     </StackPanel>
-                 </Border>
+                <!-- Section 4: Donation Button -->
+                <Button Grid.Row="4" Style="{StaticResource KoFiButton}" 
+                        HorizontalAlignment="Center" 
+                        Margin="0,0,0,15"
+                        Click="KoFiButton_Click"/>
                 
-                <Border Background="{DynamicResource ResultBoxBackgroundBrush}" CornerRadius="6" Padding="12" Margin="0,0,0,8">
-                    <StackPanel>
-                         <TextBlock Text="FFMpegCore" FontWeight="Bold" FontSize="13"/>
-                         <TextBlock Text="Autor: indexis | LGPL-2.1" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                         <TextBlock FontSize="10">
-                             <Hyperlink NavigateUri="https://github.com/rosenbjerg/FFMpegCore" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">GitHub</Hyperlink>
-                         </TextBlock>
-                     </StackPanel>
-                 </Border>
+                <!-- Section 5: QR Code -->
+                <Border Grid.Row="5" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" HorizontalAlignment="Center" Margin="0,0,0,15" Background="White" Padding="5">
+                    <Image x:Name="QrImage" Height="120" 
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           Cursor="Hand"
+                           MouseLeftButtonDown="QrImage_Click"
+                           ToolTip="CLIC PARA AMPLIAR"/>
+                </Border>
                 
-                <Border Background="{DynamicResource ResultBoxBackgroundBrush}" CornerRadius="6" Padding="12" Margin="0,0,0,8">
-                    <StackPanel>
-                         <TextBlock Text="FFmpeg" FontWeight="Bold" FontSize="13"/>
-                         <TextBlock Text="FFmpeg Team | GPL-3.0" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                         <TextBlock FontSize="10">
-                             <Hyperlink NavigateUri="https://ffmpeg.org" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">ffmpeg.org</Hyperlink>
-                         </TextBlock>
-                     </StackPanel>
-                 </Border>
-            </StackPanel>
-        </ScrollViewer>
-        
-        <!-- Section 3: Support & Motivation Message -->
-        <TextBlock Grid.Row="3" FontSize="12" 
-                   Foreground="{DynamicResource TextSecondaryBrush}"
-                   TextAlignment="Center"
-                   TextWrapping="Wrap"
-                   Margin="0,15,0,10"
-                   Padding="15,0">
-            Este proyecto nació de las ganas de compartir algo útil con ustedes. Si te gusta lo que ves y quieres invitarme a un café (o a un cable nuevo), tu donación me motiva a seguir innovando.
-        </TextBlock>
-        
-        <!-- Section 4: Donation Button (Ko-fi) -->
-        <Button Grid.Row="4" Style="{StaticResource KoFiButton}" 
-                HorizontalAlignment="Center" 
-                Margin="0,0,0,15"
-                Click="KoFiButton_Click"/>
-        
-        <!-- Section 5: QR Code for Donations -->
-        <Image x:Name="QrImage" Grid.Row="5" 
-               Height="280" 
-               HorizontalAlignment="Center" 
-               Margin="0,0,0,15"
-               RenderOptions.BitmapScalingMode="HighQuality"
-               Cursor="Hand"
-               MouseLeftButtonDown="QrImage_Click"
-               ToolTip="Clic para ampliar"/>
-        
-        <!-- Section 6: Contact & Website -->
-        <StackPanel Grid.Row="6" HorizontalAlignment="Center" Margin="0,0,0,15">
-            <TextBlock FontSize="14" HorizontalAlignment="Center">
-                <Hyperlink NavigateUri="https://www.hostilitymusic.com" 
-                           RequestNavigate="Hyperlink_RequestNavigate"
-                           Foreground="{DynamicResource AccentBrush}">www.hostilitymusic.com</Hyperlink>
-            </TextBlock>
-            <TextBlock Text="info@hostilitymusic.com" FontSize="12" 
-                       Foreground="{DynamicResource TextSecondaryBrush}" 
-                       HorizontalAlignment="Center" Margin="0,8,0,0"/>
-        </StackPanel>
-        
-        <!-- Section 7: Footer & Copyright -->
-        <TextBlock Grid.Row="7" FontSize="11" 
-                   Foreground="{DynamicResource TextSecondaryBrush}" 
-                   HorizontalAlignment="Center" 
-                   Margin="0,5,0,20"
-                   TextWrapping="Wrap"
-                   TextAlignment="Center">
-            © 2026 Hostility Music. www.hostilitymusic.com. Todos los derechos reservados.
-        </TextBlock>
-        
-        <!-- Section 8: Close Button -->
+                <!-- Section 6: Contact & Website -->
+                <StackPanel Grid.Row="6" HorizontalAlignment="Center" Margin="0,0,0,10">
+                    <TextBlock FontSize="12" HorizontalAlignment="Center">
+                        <Hyperlink NavigateUri="https://www.hostilitymusic.com" 
+                                   RequestNavigate="Hyperlink_RequestNavigate"
+                                   Foreground="{DynamicResource AccentBrush}">WWW.HOSTILITYMUSIC.COM</Hyperlink>
+                    </TextBlock>
+                    <TextBlock Text="INFO@HOSTILITYMUSIC.COM" FontSize="10" 
+                               Foreground="{DynamicResource TextSecondaryBrush}" 
+                               HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                </StackPanel>
+                
+                <!-- Section 7: Footer -->
+                <TextBlock Grid.Row="7" FontSize="9" 
+                           Foreground="{DynamicResource TextSecondaryBrush}" 
+                           HorizontalAlignment="Center" 
+                           Margin="0,0,0,0"
+                           TextAlignment="Center">
+                    © 2026 HOSTILITY MUSIC. TODOS LOS DERECHOS RESERVADOS.
+                </TextBlock>
+            </Grid>
+            
+            <!-- Lightbox Overlay -->
+            <Grid x:Name="QrOverlay" Visibility="Collapsed" Background="#F2000000" MouseLeftButtonDown="QrOverlay_Click" Panel.ZIndex="100">
+                <Border BorderBrush="White" BorderThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="40">
+                    <Image x:Name="QrOverlayImage" 
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           Cursor="Hand"/>
+                </Border>
+            </Grid>
         </Grid>
-        
-        <!-- Lightbox Overlay for QR Zoom -->
-        <Grid x:Name="QrOverlay" Visibility="Collapsed" Background="#E6000000" MouseLeftButtonDown="QrOverlay_Click" Panel.ZIndex="100">
-            <Image x:Name="QrOverlayImage" 
-                   HorizontalAlignment="Center" 
-                   VerticalAlignment="Center"
-                   Margin="40"
-                   RenderOptions.BitmapScalingMode="HighQuality"
-                   Cursor="Hand"/>
-        </Grid>
-    </Grid>
+    </Border>
 </Window>

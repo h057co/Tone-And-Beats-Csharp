@@ -7,21 +7,28 @@ namespace AudioAnalyzer.Services;
 
 public class LoudnessAnalyzer : ILoudnessAnalyzerService
 {
-    public async Task<LoudnessResult> AnalyzeAsync(string filePath, IProgress<int>? progress = null)
+    private readonly IDependencyService _dependencyService;
+
+    public LoudnessAnalyzer(IDependencyService dependencyService)
     {
-        return await Task.Run(() => Analyze(filePath, progress));
+        _dependencyService = dependencyService;
     }
 
-    public LoudnessResult Analyze(string filePath, IProgress<int>? progress = null)
+    public async Task<LoudnessResult> AnalyzeAsync(string filePath, IProgress<int>? progress = null)
     {
         var result = new LoudnessResult();
 
         try
         {
-            LoggerService.Log("LoudnessAnalyzer.Analyze - Iniciando para: " + filePath);
+            LoggerService.Log("LoudnessAnalyzer.AnalyzeAsync - Starting for: " + filePath);
             progress?.Report(10);
 
-            var ffmpegPath = FindFFmpeg();
+            if (!_dependencyService.IsFFmpegAvailable())
+            {
+                throw new FileNotFoundException("FFmpeg module not found.");
+            }
+
+            var ffmpegPath = _dependencyService.GetFFmpegPath();
             LoggerService.Log("LoudnessAnalyzer - Using FFmpeg: " + ffmpegPath);
 
             progress?.Report(30);
@@ -38,113 +45,82 @@ public class LoudnessAnalyzer : ILoudnessAnalyzerService
                 StandardErrorEncoding = System.Text.Encoding.UTF8
             };
 
-            using var process = Process.Start(startInfo);
-            if (process == null)
-                throw new Exception("No se pudo iniciar FFmpeg");
+            using var process = new Process { StartInfo = startInfo };
+            
+            var outputBuilder = new System.Text.StringBuilder();
+            var errorBuilder = new System.Text.StringBuilder();
 
-            // Leer stderr y stdout en paralelo para evitar deadlock por buffer lleno
-            var stderrTask = process.StandardError.ReadToEndAsync();
-            var stdoutTask = process.StandardOutput.ReadToEndAsync();
-            process.WaitForExit(180000);
-            var output = stderrTask.Result + stdoutTask.Result;
+            process.OutputDataReceived += (s, e) => { if (e.Data != null) outputBuilder.AppendLine(e.Data); };
+            process.ErrorDataReceived += (s, e) => { if (e.Data != null) errorBuilder.AppendLine(e.Data); };
 
-            LoggerService.Log("LoudnessAnalyzer - FFmpeg exit code: " + process.ExitCode);
+            if (!process.Start())
+                throw new Exception("Could not start FFmpeg");
+
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+
+            // Wait for exit or timeout (3 minutes)
+            var exited = await Task.Run(() => process.WaitForExit(180000));
+            
+            if (!exited)
+            {
+                LoggerService.Log("LoudnessAnalyzer - FFmpeg timed out");
+                try { process.Kill(); } catch { }
+            }
+
+            var fullOutput = outputBuilder.ToString() + errorBuilder.ToString();
+            LoggerService.Log("LoudnessAnalyzer - FFmpeg execution complete. ExitCode: " + (exited ? process.ExitCode.ToString() : "Timeout"));
 
             progress?.Report(70);
 
-            result = ParseLoudnormOutput(output);
+            result = ParseLoudnormOutput(fullOutput);
 
             progress?.Report(100);
 
-            LoggerService.Log("LoudnessAnalyzer - Resultado: LUFS=" + result.IntegratedLufs + ", LRA=" + result.LoudnessRange + ", TP=" + result.TruePeak);
+            LoggerService.Log($"LoudnessAnalyzer - Final Result: Integrated={result.IntegratedLufs} LUFS, LRA={result.LoudnessRange} LU, TP={result.TruePeak} dBFS");
+        }
+        catch (FileNotFoundException ex)
+        {
+            LoggerService.Log("LoudnessAnalyzer - Error: " + ex.Message);
+            result.HasError = true;
+            result.ErrorMessage = "FFmpeg Missing";
         }
         catch (Exception ex)
         {
-            LoggerService.Log("LoudnessAnalyzer.Analyze - Exception: " + ex.Message);
+            LoggerService.Log("LoudnessAnalyzer.AnalyzeAsync - Exception: " + ex.Message);
+            result.HasError = true;
+            result.ErrorMessage = "Analysis Error";
         }
 
         return result;
     }
 
-    private string FindFFmpeg()
-    {
-        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-        var possiblePaths = new[]
-        {
-            Path.Combine(baseDir, "publish", "ffmpeg", "ffmpeg.exe"),
-            Path.Combine(baseDir, "ffmpeg", "ffmpeg.exe"),
-            Path.Combine(baseDir, "publish", "ffmpeg.exe"),
-            Path.Combine(baseDir, "ffmpeg.exe"),
-            "ffmpeg"
-        };
-
-        foreach (var path in possiblePaths)
-        {
-            if (File.Exists(path))
-            {
-                LoggerService.Log("LoudnessAnalyzer.FindFFmpeg - Found: " + path);
-                return path;
-            }
-        }
-
-        LoggerService.Log("LoudnessAnalyzer.FindFFmpeg - Using system ffmpeg");
-        return "ffmpeg";
-    }
-
     private double ExtractValue(string output, string key)
     {
-        // Try JSON format first (key in quotes)
-        var keyIndex = output.IndexOf("\"" + key + "\"");
-        if (keyIndex >= 0)
+        // JSON format regex: "key" : "-10.5" or "key": "-10.5"
+        var jsonPattern = $"\"{key}\"\\s*:\\s*\"?([\\-\\d\\.]+)\"?";
+        var jsonMatch = System.Text.RegularExpressions.Regex.Match(output, jsonPattern);
+        
+        if (jsonMatch.Success && double.TryParse(jsonMatch.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var jsonVal))
         {
-            var afterKey = output.Substring(keyIndex);
-            var colonIndex = afterKey.IndexOf(':');
-            if (colonIndex < 0)
-                return 0;
-
-            var valuePart = afterKey.Substring(colonIndex + 1).Trim();
-            if (valuePart.StartsWith("\""))
-            {
-                var endQuote = valuePart.IndexOf('"', 1);
-                if (endQuote > 0)
-                    valuePart = valuePart.Substring(1, endQuote - 1);
-            }
-
-            if (double.TryParse(valuePart, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var result))
-                return result;
+            return jsonVal;
         }
 
-        // Try ebur128 format (I: -7.6 LUFS or Peak: 2.9 dBFS)
-        var simpleKeyIndex = output.LastIndexOf(key, StringComparison.OrdinalIgnoreCase);
-        if (simpleKeyIndex >= 0)
+        // Fallback for non-JSON output (summary text)
+        string searchKey = key.Replace("input_", "");
+        if (searchKey == "i") searchKey = "I";
+        else if (searchKey == "lra") searchKey = "LRA";
+        else if (searchKey == "tp") searchKey = "Peak";
+
+        var textPattern = $"{searchKey}:\\s*([\\-\\d\\.]+)\\s*(?:LUFS|LU|dBFS)?";
+        var textMatch = System.Text.RegularExpressions.Regex.Match(output, textPattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        if (textMatch.Success && double.TryParse(textMatch.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var textVal))
         {
-            var afterKey = output.Substring(simpleKeyIndex);
-            var colonIndex = afterKey.IndexOf(':');
-            if (colonIndex < 0)
-                return 0;
-
-            var valuePart = afterKey.Substring(colonIndex + 1).Trim();
-            
-            // Extract numeric part (e.g., "-7.6 LUFS" -> "-7.6", "2.9 dBFS" -> "2.9")
-            var numericEnd = 0;
-            for (int i = 0; i < valuePart.Length; i++)
-            {
-                char c = valuePart[i];
-                if ((c == '-' || c == '.' || char.IsDigit(c)) && i > numericEnd)
-                    numericEnd = i + 1;
-                else if (numericEnd > 0 && !char.IsDigit(valuePart[i]) && valuePart[i] != '.' && valuePart[i] != '-')
-                    break;
-            }
-
-            if (numericEnd > 0)
-            {
-                var numStr = valuePart.Substring(0, numericEnd).Trim();
-                if (double.TryParse(numStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var result))
-                    return result;
-            }
+            return textVal;
         }
 
-        return 0;
+        return double.NaN;
     }
 
     private LoudnessResult ParseLoudnormOutput(string output)
@@ -153,29 +129,36 @@ public class LoudnessAnalyzer : ILoudnessAnalyzerService
 
         if (string.IsNullOrWhiteSpace(output))
         {
-            LoggerService.Log("LoudnessAnalyzer - Output vacio");
+            LoggerService.Log("LoudnessAnalyzer - FFmpeg output was empty");
+            result.HasError = true;
+            result.ErrorMessage = "Empty output from FFmpeg";
             return result;
         }
 
         try
         {
-            // loudnorm format (JSON)
             result.IntegratedLufs = ExtractValue(output, "input_i");
             result.TruePeak = ExtractValue(output, "input_tp");
             result.LoudnessRange = ExtractValue(output, "input_lra");
 
-            LoggerService.Log("LoudnessAnalyzer - input_i (Integrated LUFS): " + result.IntegratedLufs + " LUFS");
-            LoggerService.Log("LoudnessAnalyzer - input_tp (True Peak): " + result.TruePeak + " dBFS");
-            LoggerService.Log("LoudnessAnalyzer - input_lra (Loudness Range): " + result.LoudnessRange + " LU");
-
-            if (result.LoudnessRange == 0)
+            // Validation: if any are NaN, something is wrong with parsing
+            if (double.IsNaN(result.IntegratedLufs) || double.IsNaN(result.TruePeak) || double.IsNaN(result.LoudnessRange))
             {
-                LoggerService.Log("LoudnessAnalyzer - LRA not calculated, using default");
+                LoggerService.Log("LoudnessAnalyzer - Error: Parsing failed for one or more values.");
+                result.HasError = true;
+                result.ErrorMessage = "Failed to parse FFmpeg results";
+                
+                // Set defaults if NaN
+                if (double.IsNaN(result.IntegratedLufs)) result.IntegratedLufs = 0;
+                if (double.IsNaN(result.TruePeak)) result.TruePeak = 0;
+                if (double.IsNaN(result.LoudnessRange)) result.LoudnessRange = 0;
             }
         }
         catch (Exception ex)
         {
             LoggerService.Log("LoudnessAnalyzer.ParseLoudnormOutput - Error: " + ex.Message);
+            result.HasError = true;
+            result.ErrorMessage = ex.Message;
         }
 
         return result;

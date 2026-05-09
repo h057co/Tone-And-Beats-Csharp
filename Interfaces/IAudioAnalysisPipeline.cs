@@ -26,7 +26,10 @@ public class AudioAnalysisReport
     public double AlternativeBpm { get; set; }
     public string Key { get; set; } = "Unknown";
     public string Mode { get; set; } = "";
+    public string AlternativeKey { get; set; } = "";
+    public string AlternativeMode { get; set; } = "";
     public double KeyConfidence { get; set; }
+    public double TuningOffset { get; set; }
     public WaveformData? Waveform { get; set; }
     public LoudnessResult Loudness { get; set; } = new();
 

@@ -18,4 +18,9 @@ public interface IBpmDetectorService
     /// Detects BPM from pre-loaded mono samples (avoids redundant file I/O).
     /// </summary>
     Task<(double PrimaryBpm, double AlternativeBpm)> DetectBpmAsync(float[] monoSamples, int sampleRate, IProgress<int>? progress = null, BpmRangeProfile profile = BpmRangeProfile.Auto);
+
+    /// <summary>
+    /// Performs a deep MIR analysis returning full rhythmic data including beat grid and confidence.
+    /// </summary>
+    Task<AudioAnalyzer.Models.BpmAnalysisResult?> DetectFullAnalysisAsync(string filePath, IProgress<int>? progress = null);
 }

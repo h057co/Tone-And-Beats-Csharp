@@ -2,41 +2,39 @@ using AudioAnalyzer.Interfaces;
 
 namespace AudioAnalyzer.Services;
 
-public class KeyDetector : IKeyDetectorService
+public class KeyDetector : IKeyDetector
 {
     private static readonly double[] MajorProfile = { 6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88 };
     private static readonly double[] MinorProfile = { 6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17 };
 
     private static readonly string[] NoteNames = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
 
-    public async Task<(string Key, string Mode, double Confidence)> DetectKeyAsync(string filePath, IProgress<int>? progress = null)
+    public async Task<KeyDetectionResult> DetectKeyAsync(string filePath, IProgress<int>? progress = null)
     {
-        return await Task.Run(() => DetectKey(filePath, progress));
+        return await Task.Run(() => 
+        {
+            var (monoSamples, sampleRate) = new AudioDataProvider().LoadMono(filePath);
+            return DetectKeyFromSamples(monoSamples, sampleRate, progress);
+        });
     }
 
-    public async Task<(string Key, string Mode, double Confidence)> DetectKeyAsync(float[] monoSamples, int sampleRate, IProgress<int>? progress = null)
+    public async Task<KeyDetectionResult> DetectKeyAsync(float[] monoSamples, int sampleRate, IProgress<int>? progress = null)
     {
         return await Task.Run(() => DetectKeyFromSamples(monoSamples, sampleRate, progress));
-    }
-
-    public (string Key, string Mode, double Confidence) DetectKey(string filePath, IProgress<int>? progress = null)
-    {
-        var (monoSamples, sampleRate) = new AudioDataProvider().LoadMono(filePath);
-        return DetectKeyFromSamples(monoSamples, sampleRate, progress);
     }
 
     /// <summary>
     /// Core key detection logic operating on pre-loaded mono samples.
     /// No file I/O occurs in this method.
     /// </summary>
-    private (string Key, string Mode, double Confidence) DetectKeyFromSamples(float[] monoSamples, int sampleRate, IProgress<int>? progress = null)
+    private KeyDetectionResult DetectKeyFromSamples(float[] monoSamples, int sampleRate, IProgress<int>? progress = null)
     {
         const int MaxAnalysisSeconds = 30;
 
         try
         {
             if (monoSamples.Length < sampleRate)
-                return ("Unknown", "Unknown", 0);
+                return new KeyDetectionResult("Unknown", 0, 0);
 
             // Limit to MaxAnalysisSeconds from center of audio for key detection
             int maxSamples = MaxAnalysisSeconds * sampleRate;
@@ -52,36 +50,40 @@ public class KeyDetector : IKeyDetectorService
                 analysisData = monoSamples;
             }
 
-            progress?.Report(20);
+            var tuningOffset = DetectTuningOffset(analysisData, sampleRate);
+            LoggerService.Log($"KeyDetector.DetectKeyFromSamples - Detected tuning offset: {tuningOffset * 100:F1} cents");
 
-            var pcp = ComputePitchClassProfile(analysisData, sampleRate);
+            progress?.Report(30);
+
+            var pcp = ComputePitchClassProfile(analysisData, sampleRate, tuningOffset);
             
-            progress?.Report(50);
+            progress?.Report(60);
 
-            var (keyIndex, mode, correlation) = FindBestKey(pcp);
+            var (best, alternative) = FindBestKeys(pcp);
             
             progress?.Report(100);
 
-            return (NoteNames[keyIndex], mode == 0 ? "Major" : "Minor", correlation);
+            string keyName = $"{NoteNames[best.keyIndex]} {(best.mode == 0 ? "Major" : "Minor")}";
+            string altName = $"{NoteNames[alternative.keyIndex]} {(alternative.mode == 0 ? "Major" : "Minor")}";
+            
+            return new KeyDetectionResult(keyName, best.correlation, tuningOffset * 100, altName);
         }
         catch (Exception ex)
         {
             LoggerService.Log($"KeyDetector.DetectKeyFromSamples - Error: {ex.Message}");
-            return ("Error", "Error", 0);
+            return new KeyDetectionResult("Error", 0, 0);
         }
     }
 
-    private double[] ComputePitchClassProfile(float[] samples, int sampleRate)
+    private double[] ComputePitchClassProfile(float[] samples, int sampleRate, double tuningOffset = 0)
     {
         const int fftSize = DspConstants.FFT_SIZE_KEY_DETECTION;
         const int hopSize = 8192;
         const int numBins = 12;
-        const double a4Freq = 440.0;
+        const double fRef = 440.0; // A4
 
         var pcp = new double[numBins];
         int numFrames = (samples.Length - fftSize) / hopSize + 1;
-        if (numFrames <= 0) numFrames = 1;
-
         var magnitudes = new double[fftSize / 2];
 
         for (int frame = 0; frame < numFrames; frame++)
@@ -89,29 +91,36 @@ public class KeyDetector : IKeyDetectorService
             var frameStart = frame * hopSize;
             if (frameStart + fftSize > samples.Length) break;
 
-            Array.Clear(magnitudes, 0, magnitudes.Length);
-
             var window = samples.AsSpan(frameStart, fftSize);
             ComputeFFTMagnitudes(window, magnitudes, sampleRate);
 
-            for (int pitchClass = 0; pitchClass < numBins; pitchClass++)
+            // Skip very low frequencies (below 50Hz) and high frequencies (above 2000Hz) for cleaner key detection
+            int minBin = (int)(50.0 * fftSize / sampleRate);
+            int maxBin = (int)(2000.0 * fftSize / sampleRate);
+            minBin = Math.Max(1, minBin);
+            maxBin = Math.Min(magnitudes.Length, maxBin);
+
+            for (int bin = minBin; bin < maxBin; bin++)
             {
-                double pitchEnergy = 0;
-                double c0Freq = a4Freq * Math.Pow(2, (pitchClass - 9) / 12.0);
-
-                for (int harmonic = 1; harmonic <= 8; harmonic++)
-                {
-                    double harmonicFreq = c0Freq * harmonic;
-                    if (harmonicFreq > sampleRate / 2) break;
-
-                    int freqBin = (int)(harmonicFreq * fftSize / sampleRate);
-                    if (freqBin > 0 && freqBin < magnitudes.Length - 1)
-                    {
-                        double interpolatedMag = magnitudes[freqBin] + 0.5 * (magnitudes[freqBin - 1] + magnitudes[freqBin + 1]);
-                        pitchEnergy += interpolatedMag / harmonic;
-                    }
-                }
-                pcp[pitchClass] += pitchEnergy;
+                double freq = bin * (double)sampleRate / fftSize;
+                // Calculate semitones from A4, applying tuning compensation
+                double semitones = 12.0 * Math.Log(freq / fRef, 2) + 9.0 - tuningOffset;
+                
+                // Map to [0, 12)
+                double pitch = (semitones % 12 + 12) % 12;
+                int pitchClass = (int)Math.Round(pitch) % 12;
+                
+                // Weight by magnitude (could also use power or log-magnitude)
+                // Using a simple linear weight here for simplicity
+                double weight = magnitudes[bin];
+                
+                // Soft assignment (Gaussian-like) to neighboring bins
+                double dist = pitch - pitchClass;
+                if (dist > 6.0) dist -= 12.0;
+                if (dist < -6.0) dist += 12.0;
+                
+                double coreContribution = weight * Math.Exp(-0.5 * Math.Pow(dist / 0.1, 2));
+                pcp[pitchClass] += coreContribution;
             }
         }
 
@@ -123,6 +132,61 @@ public class KeyDetector : IKeyDetectorService
         }
 
         return pcp;
+    }
+
+    private double DetectTuningOffset(float[] samples, int sampleRate)
+    {
+        const int fftSize = 16384;
+        const int hopSize = 8192;
+        const int binsPerSemitone = 5; // 20 cents per bin
+        const int totalBins = 12 * binsPerSemitone;
+        const double a4Freq = 440.0;
+
+        var highResPcp = new double[totalBins];
+        int numFrames = Math.Min(10, (samples.Length - fftSize) / hopSize + 1); // Only few frames for tuning speed
+        var magnitudes = new double[fftSize / 2];
+
+        for (int frame = 0; frame < numFrames; frame++)
+        {
+            var frameStart = (samples.Length / 2) - (numFrames * hopSize / 2) + (frame * hopSize);
+            if (frameStart < 0 || frameStart + fftSize > samples.Length) continue;
+
+            var window = samples.AsSpan(frameStart, fftSize);
+            ComputeFFTMagnitudes(window, magnitudes, sampleRate);
+
+            for (int i = 0; i < totalBins; i++)
+            {
+                double c0Freq = a4Freq * Math.Pow(2, (i / (double)binsPerSemitone - 9) / 12.0);
+                
+                for (int harmonic = 1; harmonic <= 4; harmonic++)
+                {
+                    double hFreq = c0Freq * harmonic;
+                    int bin = (int)(hFreq * fftSize / sampleRate);
+                    if (bin > 0 && bin < magnitudes.Length)
+                        highResPcp[i] += magnitudes[bin] / harmonic;
+                }
+            }
+        }
+
+        var folded = new double[binsPerSemitone];
+        for (int i = 0; i < totalBins; i++)
+            folded[i % binsPerSemitone] += highResPcp[i];
+
+        int bestOffsetBin = 0;
+        double maxEnergy = 0;
+        for (int i = 0; i < binsPerSemitone; i++)
+        {
+            if (folded[i] > maxEnergy)
+            {
+                maxEnergy = folded[i];
+                bestOffsetBin = i;
+            }
+        }
+
+        double offset = bestOffsetBin / (double)binsPerSemitone;
+        if (offset > 0.5) offset -= 1.0;
+
+        return offset;
     }
 
     private void ComputeFFTMagnitudes(Span<float> window, double[] magnitudes, int sampleRate)
@@ -146,35 +210,31 @@ public class KeyDetector : IKeyDetectorService
 
     private void FFT(System.Numerics.Complex[] data) => FftHelper.FFT(data);
 
-    private (int keyIndex, int mode, double correlation) FindBestKey(double[] pcp)
+    private ((int keyIndex, int mode, double correlation) best, (int keyIndex, int mode, double correlation) alternative) FindBestKeys(double[] pcp)
     {
-        double bestCorrelation = -1;
-        int bestKey = 0;
-        int bestMode = 0;
+        var results = new List<(int keyIndex, int mode, double correlation)>();
 
         for (int root = 0; root < 12; root++)
         {
             var rotatedPcp = RotateArray(pcp, root);
 
             double majorCorr = ComputeCorrelation(rotatedPcp, MajorProfile);
-            if (majorCorr > bestCorrelation)
-            {
-                bestCorrelation = majorCorr;
-                bestKey = root;
-                bestMode = 0;
-            }
+            results.Add((root, 0, majorCorr));
 
             double minorCorr = ComputeCorrelation(rotatedPcp, MinorProfile);
-            if (minorCorr > bestCorrelation)
-            {
-                bestCorrelation = minorCorr;
-                bestKey = root;
-                bestMode = 1;
-            }
+            results.Add((root, 1, minorCorr));
         }
 
-        double normalizedConfidence = Math.Min(1.0, Math.Max(0, (bestCorrelation + 1) / 2));
-        return (bestKey, bestMode, normalizedConfidence);
+        var sorted = results.OrderByDescending(r => r.correlation).ToList();
+        
+        var best = sorted[0];
+        var alternative = sorted[1];
+
+        // Normalize correlation to 0-1 confidence
+        best.correlation = Math.Min(1.0, Math.Max(0, (best.correlation + 1) / 2));
+        alternative.correlation = Math.Min(1.0, Math.Max(0, (alternative.correlation + 1) / 2));
+
+        return (best, alternative);
     }
 
     private double[] RotateArray(double[] arr, int shift)

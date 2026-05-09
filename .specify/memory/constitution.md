@@ -1,50 +1,54 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report:
+- Version change: 1.0.0 → 1.1.0
+- List of modified principles:
+  - Visual Excellence & UX → Now explicitly mandates the "Digital Brutalist" aesthetic.
+- Added sections:
+  - Design System Tokens (GridUnit, MainPadding).
+- Templates requiring updates:
+  - .specify/templates/plan-template.md (✅ updated)
+- Follow-up TODOs: None.
+-->
+
+# Tone & Beats by Hostility Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Accuracy-First Analysis
+All audio detection engines (BPM, Key, Loudness) must prioritize high-precision results over processing speed. Accuracy must be verified against professional standards (e.g., Krumhansl-Schmuckler for keys, multi-engine voting for BPM). The goal is to provide results that DJs and producers can trust implicitly.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Visual Excellence & UX (Digital Brutalist mandate)
+The user interface must adhere to the **Digital Brutalist** aesthetic:
+- **Typography**: Strict use of monospace fonts (Consolas, Lucida Console) for all technical data.
+- **Borders**: 1px sharp borders with `0px` corner radius (no rounded corners).
+- **Layout**: High-density information distribution using the standardized `GridUnit` (8px) and `MainPadding` (12px) tokens.
+- **Interactions**: Smooth micro-animations (e.g., Storyboard-based fade-ins) are REQUIRED for all modal/overlay elements to maintain a premium feel.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Parallel Performance
+Audio analysis must be non-blocking and utilize parallel processing (Tasks/Async) to ensure the UI remains responsive even when processing large files. Heavy computations should never lock the main UI thread.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Standalone Reliability
+The application must be self-contained. All critical dependencies (ffmpeg, ffprobe) must be bundled or verified at build/runtime. No external cloud dependencies are allowed for core analysis features to ensure privacy and offline functionality.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Data Integrity (Metadata)
+Metadata writing (ID3v2, BWF) must be safe and atomic. The application must never corrupt source files. Support for industry-standard DJ software tags (Serato, Rekordbox, Traktor) is a priority.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Technology Stack
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+- **Core**: .NET 8 / C# 12
+- **UI**: WPF (Windows Presentation Foundation) with SkiaSharp for custom rendering.
+- **Design System**: BrutalistTheme.xaml with dynamic tokens (`GridUnit`, `MainPadding`, `ControlPadding`).
+- **Audio Logic**: NAudio (IO/Playback), FFMpegCore (LUFS/Metadata), SoundTouch.Net (Tempo/Pitch).
+- **Architecture**: MVVM (Model-View-ViewModel).
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+## Quality Assurance
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+- **Performance Audits**: Periodic verification via `AudioAnalyzer.PerfTest` to ensure no regressions in speed or memory usage.
+- **Accuracy Verification**: Manual and automated checks of BPM/Key results using reference tracks with known values.
+- **Theme Testing**: Visual verification across all supported themes, ensuring strict adherence to the 1px border rule.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+Amendments to these principles require a version bump in the constitution. All new feature proposals must be validated against the "Accuracy-First" and "Visual Excellence" principles. PRs should not be merged if they violate the Standalone Reliability principle or use non-compliant UI elements (e.g., rounded buttons).
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.1.0 | **Ratified**: 2026-05-08 | **Last Amended**: 2026-05-08

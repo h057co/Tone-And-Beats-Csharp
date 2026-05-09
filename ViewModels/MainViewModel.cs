@@ -15,13 +15,15 @@ public class MainViewModel : ViewModelBase
 {
     private readonly IAudioPlayerService _audioPlayerService;
     private readonly IBpmDetectorService _bpmDetectorService;
-    private readonly IKeyDetectorService _keyDetectorService;
+    private readonly IKeyDetector _keyDetectorService;
     private readonly IWaveformAnalyzerService _waveformAnalyzerService;
     private readonly IFilePickerService _filePickerService;
     private readonly IMessageBoxService _messageBoxService;
     private readonly ILoudnessAnalyzerService _loudnessAnalyzerService;
     private readonly IAudioAnalysisPipeline _audioAnalysisPipeline;
+    private readonly IToneGeneratorService _toneGeneratorService;
     private readonly MetadataWriter _metadataWriter;
+    private readonly System.Windows.Threading.DispatcherTimer _bpmTimer;
 
     private string _fileName = "No file selected";
     private bool _isFileSelected = false;
@@ -33,6 +35,7 @@ public class MainViewModel : ViewModelBase
     private string _modeText = "";
     private string _bpmConfidence = "";
     private string _keyConfidence = "";
+    private string _tuningText = "";
     private string _statusText = "Ready";
     private string _statusState = "Normal";
     private double _analysisProgress;
@@ -55,6 +58,8 @@ public class MainViewModel : ViewModelBase
     private double _displayBpm;
     private bool _bpmAdjusted;
     private string _bpmModifierText = "";
+    private BpmAnalysisResult? _bpmAnalysisResult;
+    private RelayCommand? _swapBpmCommand;
     private double _originalAlternativeBpm;  // Almacena el BPM alternativo original detectado
     private bool _hasSwappedBpm;              // Tracking: true si el usuario ha intercambiado
     private int _bpmCycleState = 0;           // 0=original, 1=×2, 2=÷2
@@ -67,19 +72,58 @@ public class MainViewModel : ViewModelBase
     private string _bitrateModeText = "";
     private AudioFileInfo? _currentAudioInfo;
     private int _keyIndex = -1;
+    private string _alternativeKey = "";
+    private string _alternativeMode = "";
+    private string _originalKey = "";
+    private string _originalMode = "";
+    private bool _hasSwappedKey = false;
     private bool _showRelativeKey = false;
     private LoudnessResult? _loudnessResult;
     private bool _isLoudnessVisible = false;
+    private double _keyConfidenceValue = 0;
+    private bool _isTuningOff = false;
+    private bool _isKeyboardOverlayVisible = false;
+    private bool _isPlayingScale = false;
+    private RelayCommand? _toggleKeyboardCommand;
+    private RelayCommand? _playScaleCommand;
+    private RelayCommand? _closeKeyboardCommand;
+    private RelayCommand? _swapKeyCommand;
+    private readonly IToneGeneratorService _toneGenerator;
+    private readonly IDependencyService _dependencyService;
+
+    // Dependency Properties
+    private bool _isDownloading;
+    public bool IsDownloading
+    {
+        get => _isDownloading;
+        set => SetProperty(ref _isDownloading, value);
+    }
+
+    private double _downloadProgress;
+    public double DownloadProgress
+    {
+        get => _downloadProgress;
+        set => SetProperty(ref _downloadProgress, value);
+    }
+
+    private bool _isDependencyMissing;
+    public bool IsDependencyMissing
+    {
+        get => _isDependencyMissing;
+        set => SetProperty(ref _isDependencyMissing, value);
+    }
 
     public MainViewModel(
         IAudioPlayerService audioPlayerService,
         IBpmDetectorService bpmDetectorService,
-        IKeyDetectorService keyDetectorService,
+        IKeyDetector keyDetectorService,
         IWaveformAnalyzerService waveformAnalyzerService,
         IFilePickerService filePickerService,
         IMessageBoxService messageBoxService,
         ILoudnessAnalyzerService loudnessAnalyzerService,
-        IAudioAnalysisPipeline audioAnalysisPipeline)
+        IAudioAnalysisPipeline audioAnalysisPipeline,
+        IToneGeneratorService toneGeneratorService,
+        IDependencyService dependencyService)
     {
         _audioPlayerService = audioPlayerService;
         _bpmDetectorService = bpmDetectorService;
@@ -89,9 +133,51 @@ public class MainViewModel : ViewModelBase
         _messageBoxService = messageBoxService;
         _loudnessAnalyzerService = loudnessAnalyzerService;
         _audioAnalysisPipeline = audioAnalysisPipeline;
+        _toneGeneratorService = toneGeneratorService;
+        _toneGenerator = toneGeneratorService;
+        _dependencyService = dependencyService;
         _metadataWriter = new MetadataWriter();
 
+        _bpmTimer = new System.Windows.Threading.DispatcherTimer();
+        _bpmTimer.Tick += (s, e) => _toneGeneratorService.Trigger();
+
+        ResolveDependenciesCommand = new RelayCommand(async () => await ResolveDependenciesAsync());
+
+        // Check dependencies on startup
+        if (!_dependencyService.IsFFmpegAvailable())
+        {
+            IsDependencyMissing = true;
+        }
+
         _audioPlayerService.PlaybackStateChanged += OnPlaybackStateChanged;
+    }
+
+    public RelayCommand ResolveDependenciesCommand { get; }
+
+    private async Task ResolveDependenciesAsync()
+    {
+        if (IsDownloading) return;
+
+        try
+        {
+            IsDownloading = true;
+            DownloadProgress = 0;
+            
+            var progress = new Progress<double>(p => DownloadProgress = p);
+            await _dependencyService.DownloadFFmpegAsync(progress);
+            
+            IsDependencyMissing = false;
+            _messageBoxService.ShowInfo("FFmpeg dependencies resolved successfully.", "Success");
+        }
+        catch (Exception ex)
+        {
+            LoggerService.Log("MainViewModel.ResolveDependenciesAsync - Error: " + ex.Message);
+            _messageBoxService.ShowError("Failed to download FFmpeg: " + ex.Message, "Error");
+        }
+        finally
+        {
+            IsDownloading = false;
+        }
     }
 
     public string FileName
@@ -189,10 +275,31 @@ public class MainViewModel : ViewModelBase
         return string.Join(" • ", parts);
     }
 
+    public string FooterText => BuildFooterText();
+
+    private string BuildFooterText()
+    {
+        if (_currentAudioInfo == null)
+            return "READY TO ANALYZE";
+
+        return $"SAMPLE RATE: {_currentAudioInfo.SampleRate} Hz | BIT DEPTH: {_currentAudioInfo.BitDepth}-bit | CHANNELS: {_currentAudioInfo.ChannelsDisplay}";
+    }
+
+    private string _headroomText = "-. - dB";
+    public string HeadroomText
+    {
+        get => _headroomText;
+        set => SetProperty(ref _headroomText, value);
+    }
+
     public string BpmText
     {
         get => _bpmText;
-        set => SetProperty(ref _bpmText, value);
+        set
+        {
+            if (SetProperty(ref _bpmText, value))
+                OnPropertyChanged(nameof(BpmDisplayText));
+        }
     }
 
     public string BpmDisplayText
@@ -226,10 +333,10 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Semantic flag: true when BPM has been adjusted (×2 or ÷2).
-    /// The View uses this with DataTrigger to switch between TitleBrush and BpmModifiedBrush.
+    /// Semantic flag: true when BPM has been swapped.
+    /// The View uses this with DataTrigger to apply modified styling.
     /// </summary>
-    public bool IsBpmModified => !string.IsNullOrEmpty(_bpmModifierText);
+    public bool IsBpmModified => _hasSwappedBpm;
 
     /// <summary>
     /// Retorna true cuando hay un BPM alternativo válido para intercambiar.
@@ -272,6 +379,12 @@ public class MainViewModel : ViewModelBase
         set => SetProperty(ref _keyConfidence, value);
     }
 
+    public string TuningText
+    {
+        get => _tuningText;
+        set => SetProperty(ref _tuningText, value);
+    }
+
     public LoudnessResult? LoudnessResult
     {
         get => _loudnessResult;
@@ -304,8 +417,9 @@ public class MainViewModel : ViewModelBase
     {
         get
         {
-            if (_loudnessResult == null || !_loudnessResult.IsValid)
-                return "None";
+            if (_loudnessResult == null) return "None";
+            if (_loudnessResult.HasError) return "Error";
+            if (!_loudnessResult.IsValid) return "None";
 
             if (_loudnessResult.IntegratedLufs >= -12)
                 return "Danger";   // Too loud
@@ -325,8 +439,9 @@ public class MainViewModel : ViewModelBase
     {
         get
         {
-            if (_loudnessResult == null || _loudnessResult.TruePeak == 0)
-                return "None";
+            if (_loudnessResult == null) return "None";
+            if (_loudnessResult.HasError) return "Error";
+            if (_loudnessResult.TruePeak == 0) return "None";
 
             if (_loudnessResult.TruePeak >= 0)
                 return "Danger";   // Clipping
@@ -339,6 +454,27 @@ public class MainViewModel : ViewModelBase
     }
 
     private static readonly string[] NoteNames = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+
+    public bool[] ScaleNotes => CalculateScaleNotes();
+
+    private bool[] CalculateScaleNotes()
+    {
+        var notes = new bool[12];
+        if (_keyIndex < 0 || string.IsNullOrEmpty(_modeText))
+            return notes;
+
+        // Scale patterns (semitones from root)
+        int[] pattern = _modeText == "Major" 
+            ? new[] { 0, 2, 4, 5, 7, 9, 11 } 
+            : new[] { 0, 2, 3, 5, 7, 8, 10 };
+
+        foreach (int interval in pattern)
+        {
+            notes[(_keyIndex + interval) % 12] = true;
+        }
+
+        return notes;
+    }
 
     public string KeyDisplayText
     {
@@ -379,6 +515,33 @@ public class MainViewModel : ViewModelBase
         if (string.IsNullOrEmpty(_keyText) || _keyText == "--") return;
         _showRelativeKey = !_showRelativeKey;
         OnPropertyChanged(nameof(KeyDisplayText));
+    }
+
+    public void SwapKeyValues()
+    {
+        if (string.IsNullOrEmpty(_alternativeKey)) return;
+
+        if (_hasSwappedKey)
+        {
+            KeyText = _originalKey;
+            ModeText = _originalMode;
+            _hasSwappedKey = false;
+        }
+        else
+        {
+            KeyText = _alternativeKey;
+            ModeText = _alternativeMode;
+            _hasSwappedKey = true;
+        }
+
+        _keyIndex = Array.IndexOf(NoteNames, KeyText);
+        OnPropertyChanged(nameof(KeyDisplayText));
+        OnPropertyChanged(nameof(ScaleNotes));
+        
+        if (IsPlayingScale)
+        {
+            StartScalePlayback(); // Restart with new Key
+        }
     }
 
     public string StatusText
@@ -423,6 +586,58 @@ public class MainViewModel : ViewModelBase
         }
     }
 
+    public bool IsKeyboardOverlayVisible
+    {
+        get => _isKeyboardOverlayVisible;
+        set => SetProperty(ref _isKeyboardOverlayVisible, value);
+    }
+
+    public bool IsPlayingScale
+    {
+        get => _isPlayingScale;
+        set 
+        {
+            if (SetProperty(ref _isPlayingScale, value))
+            {
+                if (_isPlayingScale)
+                {
+                    StartScalePlayback();
+                }
+                else
+                {
+                    StopScalePlayback();
+                }
+            }
+        }
+    }
+
+    private void StartScalePlayback()
+    {
+        if (_displayBpm <= 0 || _keyIndex < 0)
+        {
+            IsPlayingScale = false;
+            return;
+        }
+
+        _toneGeneratorService.StartScalePlayback(_displayBpm, ScaleNotes);
+        
+        // Interval = 60,000 / BPM (ms per beat)
+        double intervalMs = 60000.0 / _displayBpm;
+        _bpmTimer.Interval = TimeSpan.FromMilliseconds(intervalMs);
+        _bpmTimer.Start();
+    }
+
+    private void StopScalePlayback()
+    {
+        _bpmTimer.Stop();
+        _toneGeneratorService.StopScalePlayback();
+    }
+
+    public RelayCommand ToggleKeyboardCommand => _toggleKeyboardCommand ??= new RelayCommand(() => IsKeyboardOverlayVisible = !IsKeyboardOverlayVisible);
+    public RelayCommand CloseKeyboardCommand => _closeKeyboardCommand ??= new RelayCommand(() => IsKeyboardOverlayVisible = false);
+    public RelayCommand PlayScaleCommand => _playScaleCommand ??= new RelayCommand(() => IsPlayingScale = !IsPlayingScale);
+    public RelayCommand SwapKeyCommand => _swapKeyCommand ??= new RelayCommand(SwapKeyValues);
+
     public bool IsAnalyzeButtonEnabled
     {
         get => _isAnalyzeButtonEnabled;
@@ -440,6 +655,25 @@ public class MainViewModel : ViewModelBase
     {
         get => _waveformData;
         set => SetProperty(ref _waveformData, value);
+    }
+
+    public double KeyConfidenceValue
+    {
+        get => _keyConfidenceValue;
+        set => SetProperty(ref _keyConfidenceValue, value);
+    }
+
+    public bool IsTuningOff
+    {
+        get => _isTuningOff;
+        set => SetProperty(ref _isTuningOff, value);
+    }
+
+    private bool _hasAnalysisResults;
+    public bool HasAnalysisResults
+    {
+        get => _hasAnalysisResults;
+        set => SetProperty(ref _hasAnalysisResults, value);
     }
 
     public string? FilePath { get; private set; }
@@ -500,6 +734,8 @@ public class MainViewModel : ViewModelBase
         });
         private set => _openUrlCommand = value;
     }
+
+    public RelayCommand SwapBpmCommand => _swapBpmCommand ??= new RelayCommand(SwapBpmValues, () => CanSwapBpm);
 
     public bool IsAnalyzingInProgress => _isAnalyzingInProgress;
 
@@ -580,6 +816,7 @@ public class MainViewModel : ViewModelBase
             }
 
             FilePath = filePath;
+            HasAnalysisResults = false;
             _audioPlayerService.LoadFile(filePath);
 
             FileName = Path.GetFileName(filePath);
@@ -632,6 +869,7 @@ public class MainViewModel : ViewModelBase
             
             _originalBpm = 0;
             _displayBpm = 0;
+            _bpmAnalysisResult = null;
             _originalAlternativeBpm = 0;
             _hasSwappedBpm = false;
             _bpmAdjusted = false;
@@ -703,9 +941,21 @@ public class MainViewModel : ViewModelBase
             StatusText = "Analizando audio...";
             
             var progressReporter = new Progress<int>(p => AnalysisProgress = p);
+            
+            // Perform full rhythmic analysis
+            _bpmAnalysisResult = await _bpmDetectorService.DetectFullAnalysisAsync(FilePath, progressReporter);
+            
             var report = await _audioAnalysisPipeline.AnalyzeAudioAsync(FilePath, progressReporter, SelectedBpmProfile);
             
-            LoggerService.Log($"ExecuteAnalyze - Pipeline complete: BPM={report.Bpm}/{report.AlternativeBpm}, Key={report.Key}/{report.Mode}");
+            if (_bpmAnalysisResult != null)
+            {
+                // Override pipeline BPM with Essentia results if available
+                report.Bpm = _bpmAnalysisResult.PrimaryBpm;
+                report.AlternativeBpm = _bpmAnalysisResult.AlternateBpms.FirstOrDefault();
+                if (report.AlternativeBpm == 0) report.AlternativeBpm = report.Bpm * 2;
+                
+                LoggerService.Log($"ExecuteAnalyze - Essentia BPM: {report.Bpm} (Reinterpreted: {_bpmAnalysisResult.IsReinterpreted})");
+            }
 
             BpmText = report.Bpm > 0 ? report.Bpm.ToString("F1") : "--";
             AlternativeBpmText = report.AlternativeBpm > 0 && report.AlternativeBpm != report.Bpm ? $"Alt: {report.AlternativeBpm:F0} BPM" : "";
@@ -722,16 +972,28 @@ public class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(BpmDisplayText));
                 OnPropertyChanged(nameof(IsBpmModified));
                 OnPropertyChanged(nameof(CanSwapBpm));
+                SwapBpmCommand.RaiseCanExecuteChanged();
             }
 
             KeyText = report.Key != "Unknown" ? report.Key : "--";
             ModeText = report.Mode != "" ? report.Mode : "";
+            _originalKey = report.Key;
+            _originalMode = report.Mode;
+            _alternativeKey = report.AlternativeKey;
+            _alternativeMode = report.AlternativeMode;
+            _hasSwappedKey = false;
+            
             KeyConfidence = report.KeyConfidence > 0 ? $"Confidence: {report.KeyConfidence:P0}" : "";
+            KeyConfidenceValue = report.KeyConfidence * 100;
+            TuningText = report.Key != "Unknown" ? $"Tuning: {report.TuningOffset:+0.0;-0.0;0} cents" : "";
+            IsTuningOff = report.Key != "Unknown" && Math.Abs(report.TuningOffset) > 10;
+
             if (report.Key != "Unknown")
             {
                 _keyIndex = Array.IndexOf(NoteNames, report.Key);
                 _showRelativeKey = false;
                 OnPropertyChanged(nameof(KeyDisplayText));
+                OnPropertyChanged(nameof(ScaleNotes));
             }
 
             LoudnessResult = report.Loudness;
@@ -739,6 +1001,8 @@ public class MainViewModel : ViewModelBase
             WaveformData = report.Waveform;
 
             AnalysisProgress = 100;
+            HasAnalysisResults = true;
+            HeadroomText = $"{report.Loudness.TruePeak:F1} dB";
             StatusText = "¡Análisis completo!";
             LoggerService.Log("ExecuteAnalyze - Analisis completo");
         }
@@ -911,53 +1175,6 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Ciclo de ajuste BPM con un solo click izquierdo:
-    ///   Estado 0 → 1: multiplica el BPM base ×2
-    ///   Estado 1 → 2: divide el BPM base ÷2
-    ///   Estado 2 → 0: restaura el BPM base original
-    /// Funciona sobre el BPM actualmente activo: si hay swap activo,
-    /// opera sobre _originalAlternativeBpm como base.
-    /// </summary>
-    public void CycleBpmAdjustment()
-    {
-        // Determinar la base: si swap activo, usar el alternativo; si no, el original
-        double baseBpm = _hasSwappedBpm ? _originalAlternativeBpm : _originalBpm;
-
-        if (baseBpm <= 0) return;
-
-        // Avanzar al siguiente estado del ciclo: 0 → 1 → 2 → 0
-        _bpmCycleState = (_bpmCycleState + 1) % 3;
-
-        switch (_bpmCycleState)
-        {
-            case 1: // ×2
-                _displayBpm = baseBpm * 2;
-                _bpmModifierText = "×2";
-                _bpmAdjusted = true;
-                StatusText = $"BPM ×2 = {_displayBpm:F1}";
-                break;
-
-            case 2: // ÷2
-                _displayBpm = baseBpm / 2;
-                _bpmModifierText = "÷2";
-                _bpmAdjusted = true;
-                StatusText = $"BPM ÷2 = {_displayBpm:F1}";
-                break;
-
-            case 0: // reset
-            default:
-                _displayBpm = baseBpm;
-                _bpmModifierText = "";
-                _bpmAdjusted = false;
-                StatusText = "BPM reset al valor original";
-                break;
-        }
-
-        OnPropertyChanged(nameof(BpmDisplayText));
-        OnPropertyChanged(nameof(IsBpmModified));
-    }
-
-    /// <summary>
     /// Intercambia el BPM principal con el BPM alternativo.
     /// Primer click: muestra el alternativo como principal.
     /// Segundo click: restaura el valor original.
@@ -965,12 +1182,7 @@ public class MainViewModel : ViewModelBase
     public void SwapBpmValues()
     {
         if (!CanSwapBpm) return;
-
-        // Al intercambiar siempre se resetea el ciclo de ajuste
-        _bpmCycleState = 0;
-        _bpmAdjusted = false;
-        _bpmModifierText = "";
-
+ 
         if (_hasSwappedBpm)
         {
             // Segundo click: restaurar al BPM original detectado
@@ -985,17 +1197,24 @@ public class MainViewModel : ViewModelBase
             _hasSwappedBpm = true;
             _alternativeBpmText = $"Original: {_originalBpm:F0} BPM";
         }
-
+ 
         OnPropertyChanged(nameof(BpmDisplayText));
         OnPropertyChanged(nameof(AlternativeBpmText));
         OnPropertyChanged(nameof(IsBpmModified));
         OnPropertyChanged(nameof(IsSwapped));
         OnPropertyChanged(nameof(IsBpmSwapped));
+ 
+        if (IsPlayingScale)
+        {
+            StartScalePlayback(); // Restart with new BPM
+        }
     }
 
     public void Cleanup()
     {
+        StopScalePlayback();
         _audioPlayerService.PlaybackStateChanged -= OnPlaybackStateChanged;
         _audioPlayerService.Dispose();
+        _toneGeneratorService.Dispose();
     }
 }

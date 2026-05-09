@@ -1,0 +1,45 @@
+## [v1.2] Comprehensive .NET/WPF Gitignore
+
+# Build results
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+Visual Studio 2015/2017/2019/2022 Cache
+.vs/
+
+# IDE files
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.clw
+*.ncb
+*.aps
+*.uwb
+*.pdb
+*.opendb
+*.VC.db
+
+# Packages
+packages/
+*.nupkg
+# NuGet Restore
+project.lock.json
+project.assets.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# App specific
+*.log
+.env*
+ffmpeg.exe
+ffprobe.exe
+dependencies/ffmpeg/
+
+# Spec Kit / Agents
+.mcp_data/
+scratch/

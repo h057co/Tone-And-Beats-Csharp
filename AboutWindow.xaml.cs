@@ -24,7 +24,13 @@ public partial class AboutWindow : Window
         
         LoadEmbeddedImages();
         SetVersionText();
+        ThemeManager.ThemeChanged += (s, e) => Dispatcher.BeginInvoke(LoadEmbeddedImages);
         LoggerService.Log("AboutWindow - Constructor completado");
+    }
+
+    private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        DragMove();
     }
 
     private void SetVersionText()
@@ -128,49 +134,6 @@ public partial class AboutWindow : Window
         {
             logoImg.Source = logo;
             LoggerService.Log("AboutWindow.LoadEmbeddedImages - ✓ Logo image loaded");
-        }
-    }
-
-    private bool _isUpdatingScale;
-
-    private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        if (!_isUpdatingScale)
-        {
-            Dispatcher.BeginInvoke(UpdateContentScale, System.Windows.Threading.DispatcherPriority.Loaded);
-        }
-    }
-
-    /// <summary>
-    /// Calculates and applies uniform scale to fit all content vertically
-    /// while keeping the width responsive (filling available space).
-    /// </summary>
-    private void UpdateContentScale()
-    {
-        if (_isUpdatingScale) return;
-        _isUpdatingScale = true;
-
-        try
-        {
-            ContentScale.ScaleX = 1;
-            ContentScale.ScaleY = 1;
-
-            ContentGrid.Measure(new Size(ContentGrid.ActualWidth > 0 ? ContentGrid.ActualWidth : ActualWidth, double.PositiveInfinity));
-            double contentDesiredHeight = ContentGrid.DesiredSize.Height;
-
-            // Available height = window height minus chrome and grid margin (5+5)
-            double availableHeight = ActualHeight - 40;
-
-            if (contentDesiredHeight > 0 && availableHeight > 0)
-            {
-                double scale = availableHeight / contentDesiredHeight;
-                ContentScale.ScaleX = scale;
-                ContentScale.ScaleY = scale;
-            }
-        }
-        finally
-        {
-            _isUpdatingScale = false;
         }
     }
 }

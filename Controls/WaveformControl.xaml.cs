@@ -4,8 +4,10 @@ using System.Windows.Input;
 using SkiaSharp;
 using SkiaSharp.Views.Desktop;
 using SkiaSharp.Views.WPF;
+using System.Windows.Media;
 using AudioAnalyzer.Models;
 using AudioAnalyzer.Services;
+using AudioAnalyzer.Themes;
 
 namespace AudioAnalyzer.Controls;
 
@@ -56,8 +58,34 @@ public partial class WaveformControl : UserControl
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        UpdateColorsFromResources();
         InitializePaints();
         UpdateTimeline();
+        
+        ThemeManager.ThemeChanged += (s, args) => {
+            UpdateColorsFromResources();
+            InitializePaints();
+            SkiaCanvas?.InvalidateVisual();
+        };
+    }
+
+    private void UpdateColorsFromResources()
+    {
+        try
+        {
+            if (Application.Current.Resources["WaveformBrush"] is SolidColorBrush activeBrush)
+            {
+                var color = activeBrush.Color;
+                _activeColor = new SKColor(color.R, color.G, color.B, color.A);
+            }
+
+            if (Application.Current.Resources["TextSecondaryBrush"] is SolidColorBrush inactiveBrush)
+            {
+                var color = inactiveBrush.Color;
+                _inactiveColor = new SKColor(color.R, color.G, color.B, (byte)(color.A * 0.5));
+            }
+        }
+        catch { /* Fallback to defaults */ }
     }
 
     private void InitializePaints()

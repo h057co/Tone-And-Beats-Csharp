@@ -26,14 +26,17 @@ public class LoudnessResult
         set => LoudnessRange = value;
     }
     
-    public bool IsValid => IntegratedLufs < 0 && IntegratedLufs > -70;
+    public bool HasError { get; set; }
+    public string ErrorMessage { get; set; } = string.Empty;
 
-    public string IntegratedDisplay => IsValid ? $"{IntegratedLufs:F1}" : "--";
-    
+    public bool IsValid => !HasError && IntegratedLufs < 0 && IntegratedLufs > -70;
+
+    public string IntegratedDisplay => IsValid ? $"{IntegratedLufs:F1}" : (HasError ? "ERR" : "--");
+
     /// <summary>
     /// Display format for LRA (Loudness Range) in Loudness Units
     /// </summary>
-    public string LraDisplay => LoudnessRange > 0 && LoudnessRange < 50 ? $"{LoudnessRange:F1} LU" : "--";
-    
-    public string TruePeakDisplay => TruePeak != 0 ? $"{TruePeak:F1} dBFS" : "--";
+    public string LraDisplay => !HasError && LoudnessRange > 0 && LoudnessRange < 50 ? $"{LoudnessRange:F1} LU" : (HasError ? "ERR" : "--");
+
+    public string TruePeakDisplay => !HasError && TruePeak != 0 ? $"{TruePeak:F1} dBFS" : (HasError ? "ERR" : "--");
 }

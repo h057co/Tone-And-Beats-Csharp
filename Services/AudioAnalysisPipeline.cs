@@ -10,13 +10,13 @@ namespace AudioAnalyzer.Services;
 public class AudioAnalysisPipeline : IAudioAnalysisPipeline
 {
     private readonly IBpmDetectorService _bpmDetector;
-    private readonly IKeyDetectorService _keyDetector;
+    private readonly IKeyDetector _keyDetector;
     private readonly IWaveformAnalyzerService _waveformAnalyzer;
     private readonly ILoudnessAnalyzerService _loudnessAnalyzer;
 
     public AudioAnalysisPipeline(
         IBpmDetectorService bpmDetector,
-        IKeyDetectorService keyDetector,
+        IKeyDetector keyDetector,
         IWaveformAnalyzerService waveformAnalyzer,
         ILoudnessAnalyzerService loudnessAnalyzer)
     {
@@ -58,16 +58,14 @@ public class AudioAnalysisPipeline : IAudioAnalysisPipeline
 
             double bpm = 0;
             double altBpm = 0;
-            string key = "Unknown";
-            string mode = "";
-            double keyConfidence = 0;
+            KeyDetectionResult? keyResult = null;
             WaveformData? waveform = null;
             LoudnessResult loudness = new();
 
             try { (bpm, altBpm) = await bpmTask; }
             catch (Exception ex) { LoggerService.Log($"AudioAnalysisPipeline - BPM detection failed: {ex.Message}"); }
 
-            try { (key, mode, keyConfidence) = await keyTask; }
+            try { keyResult = await keyTask; }
             catch (Exception ex) { LoggerService.Log($"AudioAnalysisPipeline - Key detection failed: {ex.Message}"); }
 
             try { waveform = await waveformTask; }
@@ -97,13 +95,28 @@ public class AudioAnalysisPipeline : IAudioAnalysisPipeline
             // === STEP 4: Build report ===
             report.Bpm = bpm;
             report.AlternativeBpm = altBpm;
-            report.Key = key;
-            report.Mode = mode;
-            report.KeyConfidence = keyConfidence;
+            
+            if (keyResult != null)
+            {
+                var parts = keyResult.Key.Split(' ');
+                report.Key = parts[0];
+                report.Mode = parts.Length > 1 ? parts[1] : "";
+                
+                if (!string.IsNullOrEmpty(keyResult.AlternativeKey))
+                {
+                    var altParts = keyResult.AlternativeKey.Split(' ');
+                    report.AlternativeKey = altParts[0];
+                    report.AlternativeMode = altParts.Length > 1 ? altParts[1] : "";
+                }
+
+                report.KeyConfidence = keyResult.Confidence;
+                report.TuningOffset = keyResult.TuningOffsetCents;
+            }
+
             report.Waveform = waveform;
             report.Loudness = loudness;
 
-            LoggerService.Log($"AudioAnalysisPipeline - Analysis complete: BPM={bpm}/{altBpm}, Key={key}/{mode}, Valid={report.IsValid}");
+            LoggerService.Log($"AudioAnalysisPipeline - Analysis complete: BPM={bpm}/{altBpm}, Key={report.Key}/{report.Mode}, Valid={report.IsValid}");
             progress?.Report(100);
         }
         catch (Exception ex)
