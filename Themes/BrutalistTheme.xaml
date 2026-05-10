@@ -3,38 +3,41 @@
                     xmlns:system="clr-namespace:System;assembly=mscorlib">
     
     <!-- Digital Brutalism / CLI Colors -->
+    <Color x:Key="PrimaryAccentColor">#FF00CC00</Color> <!-- Terminal Green Opaque -->
+    <Color x:Key="SecondaryAccentColor">#FFFF00FF</Color> <!-- Terminal Magenta Opaque -->
+
     <SolidColorBrush x:Key="BackgroundBrush" Color="#000000"/>
     <FontFamily x:Key="AppFontFamily">Consolas, Lucida Console, Courier New</FontFamily>
     <SolidColorBrush x:Key="ForegroundBrush" Color="#FFFFFF"/>
-    <SolidColorBrush x:Key="AccentBrush" Color="#00FF00"/> <!-- Terminal Green -->
-    <SolidColorBrush x:Key="SecondaryAccentBrush" Color="#FF00FF"/> <!-- Terminal Magenta -->
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource PrimaryAccentColor}"/>
+    <SolidColorBrush x:Key="SecondaryAccentBrush" Color="{StaticResource SecondaryAccentColor}"/>
     
     <SolidColorBrush x:Key="BorderBrush" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="HeaderBackgroundBrush" Color="#111111"/>
     
-    <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="#00FF00"/>
+    <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="{StaticResource PrimaryAccentColor}"/>
     <SolidColorBrush x:Key="ButtonForegroundBrush" Color="#000000"/>
-    <SolidColorBrush x:Key="ButtonHoverBrush" Color="#00CC00"/>
+    <SolidColorBrush x:Key="ButtonHoverBrush" Color="{StaticResource PrimaryAccentColor}"/>
     
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="#AAAAAA"/>
-    <SolidColorBrush x:Key="KeyForegroundBrush" Color="#FF00FF"/>
+    <SolidColorBrush x:Key="KeyForegroundBrush" Color="{StaticResource SecondaryAccentColor}"/>
     <SolidColorBrush x:Key="TitleBrush" Color="#FFFFFF"/>
     
-    <SolidColorBrush x:Key="AnalyzeButtonBrush" Color="#FF00FF"/>
+    <SolidColorBrush x:Key="AnalyzeButtonBrush" Color="{StaticResource SecondaryAccentColor}"/>
     <SolidColorBrush x:Key="AnalyzeButtonHoverBrush" Color="#CC00CC"/>
     
     <SolidColorBrush x:Key="ProgressBarBackgroundBrush" Color="#111111"/>
     <SolidColorBrush x:Key="WaveformBackgroundBrush" Color="#000000"/>
-    <SolidColorBrush x:Key="WaveformBrush" Color="#00FF00"/>
+    <SolidColorBrush x:Key="WaveformBrush" Color="{StaticResource PrimaryAccentColor}"/>
     <SolidColorBrush x:Key="PlayheadBrush" Color="#FF0000"/>
 
     <!-- Semantic State Brushes -->
     <SolidColorBrush x:Key="StatusForegroundBrush" Color="#AAAAAA"/>
-    <SolidColorBrush x:Key="StatusSuccessBrush" Color="#00FF00"/>
+    <SolidColorBrush x:Key="StatusSuccessBrush" Color="{StaticResource PrimaryAccentColor}"/>
     <SolidColorBrush x:Key="StatusErrorBrush" Color="#FF0000"/>
     <SolidColorBrush x:Key="FileNameInactiveBrush" Color="#AAAAAA"/>
-    <SolidColorBrush x:Key="FileNameActiveBrush" Color="#00FF00"/>
-    <SolidColorBrush x:Key="BpmModifiedBrush" Color="#FF00FF"/>
+    <SolidColorBrush x:Key="FileNameActiveBrush" Color="{StaticResource PrimaryAccentColor}"/>
+    <SolidColorBrush x:Key="BpmModifiedBrush" Color="{StaticResource SecondaryAccentColor}"/>
     <SolidColorBrush x:Key="BpmSwappedBrush" Color="#00FFFF"/>
     <SolidColorBrush x:Key="ResultBoxBackgroundBrush" Color="#111111"/>
 

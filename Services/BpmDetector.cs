@@ -98,11 +98,11 @@ public class BpmDetector : IBpmDetectorService
     }
 
 
-    public async Task<AudioAnalyzer.Models.BpmAnalysisResult?> DetectFullAnalysisAsync(string filePath, IProgress<int>? progress = null)
+    public async Task<AudioAnalyzer.Models.BpmAnalysisResult?> DetectFullAnalysisAsync(string filePath, IProgress<int>? progress = null, BpmRangeProfile profile = BpmRangeProfile.Auto)
     {
         try
         {
-            LoggerService.Log($"BpmDetector.DetectFullAnalysisAsync - Analyzing {Path.GetFileName(filePath)}");
+            LoggerService.Log($"BpmDetector.DetectFullAnalysisAsync - Analyzing {Path.GetFileName(filePath)} with Profile={profile}");
             progress?.Report(10);
 
             var preparedPath = await _preprocessor.PrepareForEssentiaAsync(filePath);
@@ -116,6 +116,8 @@ public class BpmDetector : IBpmDetectorService
             if (result == null) return null;
 
             progress?.Report(80);
+
+            double finalBpm = result.PrimaryBpm;
 
             // BIH Verification (same logic as DetectBpmAsync)
             var bihVerifier = new BeatIntervalVerifier();
@@ -132,13 +134,33 @@ public class BpmDetector : IBpmDetectorService
                     result.HistogramPeak2Bpm,
                     result.HistogramPeak2Weight);
                 if (bihBpm > 0)
-                    result.PrimaryBpm = bihBpm;
+                    finalBpm = bihBpm;
             }
             else
             {
                 var heuristic = new UrbanStrategyHeuristic();
                 result = heuristic.Apply(result);
+                finalBpm = result.PrimaryBpm;
             }
+
+            // Snap to integer if within 0.3 BPM
+            finalBpm = SnapToInteger(finalBpm);
+
+            // Apply profile constraint
+            if (profile != BpmRangeProfile.Auto)
+            {
+                var candidates = new List<(double bpm, double score)>();
+                if (result.HistogramPeak1Bpm > 0) candidates.Add((result.HistogramPeak1Bpm, result.HistogramPeak1Weight));
+                if (result.HistogramPeak2Bpm > 0) candidates.Add((result.HistogramPeak2Bpm, result.HistogramPeak2Weight));
+                
+                finalBpm = SelectBestCandidateForProfile(finalBpm, 0, candidates, new List<(double bpm, double score)>(), profile);
+            }
+
+            result.PrimaryBpm = finalBpm;
+            
+            // Generate Alternative BPM
+            double altBpm = CalculateAlternativeBpm(finalBpm);
+            result.AlternateBpms = new List<double> { altBpm };
 
             progress?.Report(100);
             return result;

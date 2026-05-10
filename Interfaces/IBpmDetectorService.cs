@@ -22,5 +22,5 @@ public interface IBpmDetectorService
     /// <summary>
     /// Performs a deep MIR analysis returning full rhythmic data including beat grid and confidence.
     /// </summary>
-    Task<AudioAnalyzer.Models.BpmAnalysisResult?> DetectFullAnalysisAsync(string filePath, IProgress<int>? progress = null);
+    Task<AudioAnalyzer.Models.BpmAnalysisResult?> DetectFullAnalysisAsync(string filePath, IProgress<int>? progress = null, BpmRangeProfile profile = BpmRangeProfile.Auto);
 }

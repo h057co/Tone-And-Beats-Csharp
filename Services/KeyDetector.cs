@@ -110,9 +110,20 @@ public class KeyDetector : IKeyDetector
                 double pitch = (semitones % 12 + 12) % 12;
                 int pitchClass = (int)Math.Round(pitch) % 12;
                 
-                // Weight by magnitude (could also use power or log-magnitude)
-                // Using a simple linear weight here for simplicity
+                // Weight by magnitude
                 double weight = magnitudes[bin];
+                
+                // --- BASS ATTENUATION ---
+                // Reduce the impact of sub-bass and low frequencies (<250Hz) 
+                // so that dissonant kicks/808s don't skew the overall melodic key detection.
+                if (freq < 120.0)
+                {
+                    weight *= 0.15; // 85% attenuation for sub-bass
+                }
+                else if (freq < 250.0)
+                {
+                    weight *= 0.5; // 50% attenuation for low-mids
+                }
                 
                 // Soft assignment (Gaussian-like) to neighboring bins
                 double dist = pitch - pitchClass;

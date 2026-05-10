@@ -38,6 +38,9 @@
         <infra:LevelToBrushConverter x:Key="LevelToBrushConverter"/>
         <infra:PlayScaleTextConverter x:Key="PlayScaleTextConverter"/>
         <infra:InverseBoolConverter x:Key="InverseBoolConverter"/>
+        <infra:TonicMarkerVisibilityConverter x:Key="TonicMarkerVisibilityConverter"/>
+        <infra:DoubleToVisibilityConverter x:Key="DoubleToVisibilityConverter"/>
+        <infra:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
         <Style TargetType="Button">
             <Setter Property="Background" Value="{DynamicResource ButtonBackgroundBrush}"/>
             <Setter Property="Foreground" Value="White"/>
@@ -48,7 +51,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource ControlCornerRadius}" Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </ControlTemplate>
@@ -132,7 +135,7 @@
                 <Border x:Name="Border" Grid.ColumnSpan="2" 
                         Background="{DynamicResource ComboBoxBackgroundBrush}" 
                         BorderBrush="{DynamicResource ComboBoxBorderBrush}"
-                        BorderThickness="1" CornerRadius="4"/>
+                        BorderThickness="1" CornerRadius="{DynamicResource ControlCornerRadius}"/>
                 <Border Grid.Column="0" Background="Transparent" Margin="1"/>
                 <Path x:Name="Arrow" Grid.Column="1" 
                       Fill="{DynamicResource ComboBoxForegroundBrush}" 
@@ -184,7 +187,7 @@
                                     <Border x:Name="DropDownBorder" 
                                             Background="{DynamicResource ComboBoxBackgroundBrush}" 
                                             BorderBrush="{DynamicResource ComboBoxBorderBrush}"
-                                            BorderThickness="1" CornerRadius="4"
+                                            BorderThickness="1" CornerRadius="{DynamicResource ControlCornerRadius}"
                                             Margin="0,1,0,0">
                                         <Border.Effect>
                                             <DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.3" Color="Black"/>
@@ -848,9 +851,12 @@
                     <Border Grid.Row="1" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Margin="{DynamicResource SectionMargin}" Padding="0,0,0,10">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock Text="DETECTED KEY: " FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" FontFamily="{DynamicResource TerminalFont}"/>
-                            <Button Command="{Binding SwapKeyCommand}" Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand">
+                            <Button Command="{Binding ToggleKeyDisplayCommand}" Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand">
                                 <TextBlock Text="{Binding KeyDisplayText}" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource KeyForegroundBrush}" FontFamily="{DynamicResource TerminalFont}"
-                                           ToolTip="Click to swap with alternative result"/>
+                                           ToolTip="Click to toggle relative key"/>
+                            </Button>
+                            <Button Command="{Binding SwapKeyCommand}" Background="Transparent" BorderThickness="0" Padding="4,0" Margin="10,0,0,0" Cursor="Hand" ToolTip="Swap with alternative result">
+                                <TextBlock Text="[SWAP]" FontSize="8" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
                             </Button>
                         </StackPanel>
                     </Border>
@@ -872,31 +878,59 @@
                                 
                                 <!-- C (0) -->
                                 <Border Grid.Column="0" Background="White" BorderBrush="#333" BorderThickness="1,1,0,1">
-                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=0}" Opacity="0.6"/>
+                                    <Grid>
+                                        <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=0}" Opacity="0.6"/>
+                                        <TextBlock Text="X" FontSize="14" FontWeight="Bold" Foreground="#CC0000" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                 Visibility="{Binding CurrentTonicIndex, Converter={StaticResource TonicMarkerVisibilityConverter}, ConverterParameter=0}"/>
+                                    </Grid>
                                 </Border>
                                 <!-- D (2) -->
                                 <Border Grid.Column="1" Background="White" BorderBrush="#333" BorderThickness="1,1,0,1">
-                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=2}" Opacity="0.6"/>
+                                    <Grid>
+                                        <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=2}" Opacity="0.6"/>
+                                        <TextBlock Text="X" FontSize="14" FontWeight="Bold" Foreground="#CC0000" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                 Visibility="{Binding CurrentTonicIndex, Converter={StaticResource TonicMarkerVisibilityConverter}, ConverterParameter=2}"/>
+                                    </Grid>
                                 </Border>
                                 <!-- E (4) -->
                                 <Border Grid.Column="2" Background="White" BorderBrush="#333" BorderThickness="1,1,0,1">
-                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=4}" Opacity="0.6"/>
+                                    <Grid>
+                                        <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=4}" Opacity="0.6"/>
+                                        <TextBlock Text="X" FontSize="14" FontWeight="Bold" Foreground="#CC0000" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                 Visibility="{Binding CurrentTonicIndex, Converter={StaticResource TonicMarkerVisibilityConverter}, ConverterParameter=4}"/>
+                                    </Grid>
                                 </Border>
                                 <!-- F (5) -->
                                 <Border Grid.Column="3" Background="White" BorderBrush="#333" BorderThickness="1,1,0,1">
-                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=5}" Opacity="0.6"/>
+                                    <Grid>
+                                        <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=5}" Opacity="0.6"/>
+                                        <TextBlock Text="X" FontSize="14" FontWeight="Bold" Foreground="#CC0000" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                 Visibility="{Binding CurrentTonicIndex, Converter={StaticResource TonicMarkerVisibilityConverter}, ConverterParameter=5}"/>
+                                    </Grid>
                                 </Border>
                                 <!-- G (7) -->
                                 <Border Grid.Column="4" Background="White" BorderBrush="#333" BorderThickness="1,1,0,1">
-                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=7}" Opacity="0.6"/>
+                                    <Grid>
+                                        <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=7}" Opacity="0.6"/>
+                                        <TextBlock Text="X" FontSize="14" FontWeight="Bold" Foreground="#CC0000" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                 Visibility="{Binding CurrentTonicIndex, Converter={StaticResource TonicMarkerVisibilityConverter}, ConverterParameter=7}"/>
+                                    </Grid>
                                 </Border>
                                 <!-- A (9) -->
                                 <Border Grid.Column="5" Background="White" BorderBrush="#333" BorderThickness="1,1,0,1">
-                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=9}" Opacity="0.6"/>
+                                    <Grid>
+                                        <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=9}" Opacity="0.6"/>
+                                        <TextBlock Text="X" FontSize="14" FontWeight="Bold" Foreground="#CC0000" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                 Visibility="{Binding CurrentTonicIndex, Converter={StaticResource TonicMarkerVisibilityConverter}, ConverterParameter=9}"/>
+                                    </Grid>
                                 </Border>
                                 <!-- B (11) -->
                                 <Border Grid.Column="6" Background="White" BorderBrush="#333" BorderThickness="1">
-                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=11}" Opacity="0.6"/>
+                                    <Grid>
+                                        <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=11}" Opacity="0.6"/>
+                                        <TextBlock Text="X" FontSize="14" FontWeight="Bold" Foreground="#CC0000" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                 Visibility="{Binding CurrentTonicIndex, Converter={StaticResource TonicMarkerVisibilityConverter}, ConverterParameter=11}"/>
+                                    </Grid>
                                 </Border>
                             </Grid>
                             
@@ -914,23 +948,43 @@
                                 
                                 <!-- C# (1) -->
                                 <Border Grid.Column="0" Width="24" Height="70" Background="Black" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,-12,0" Panel.ZIndex="10">
-                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=1}" Opacity="0.8"/>
+                                    <Grid>
+                                        <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=1}" Opacity="0.8"/>
+                                        <TextBlock Text="X" FontSize="12" FontWeight="Bold" Foreground="#FF5555" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,5"
+                                                 Visibility="{Binding CurrentTonicIndex, Converter={StaticResource TonicMarkerVisibilityConverter}, ConverterParameter=1}"/>
+                                    </Grid>
                                 </Border>
                                 <!-- D# (3) -->
                                 <Border Grid.Column="1" Width="24" Height="70" Background="Black" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,-12,0" Panel.ZIndex="10">
-                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=3}" Opacity="0.8"/>
+                                    <Grid>
+                                        <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=3}" Opacity="0.8"/>
+                                        <TextBlock Text="X" FontSize="12" FontWeight="Bold" Foreground="#FF5555" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,5"
+                                                 Visibility="{Binding CurrentTonicIndex, Converter={StaticResource TonicMarkerVisibilityConverter}, ConverterParameter=3}"/>
+                                    </Grid>
                                 </Border>
                                 <!-- F# (6) -->
                                 <Border Grid.Column="3" Width="24" Height="70" Background="Black" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,-12,0" Panel.ZIndex="10">
-                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=6}" Opacity="0.8"/>
+                                    <Grid>
+                                        <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=6}" Opacity="0.8"/>
+                                        <TextBlock Text="X" FontSize="12" FontWeight="Bold" Foreground="#FF5555" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,5"
+                                                 Visibility="{Binding CurrentTonicIndex, Converter={StaticResource TonicMarkerVisibilityConverter}, ConverterParameter=6}"/>
+                                    </Grid>
                                 </Border>
                                 <!-- G# (8) -->
                                 <Border Grid.Column="4" Width="24" Height="70" Background="Black" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,-12,0" Panel.ZIndex="10">
-                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=8}" Opacity="0.8"/>
+                                    <Grid>
+                                        <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=8}" Opacity="0.8"/>
+                                        <TextBlock Text="X" FontSize="12" FontWeight="Bold" Foreground="#FF5555" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,5"
+                                                 Visibility="{Binding CurrentTonicIndex, Converter={StaticResource TonicMarkerVisibilityConverter}, ConverterParameter=8}"/>
+                                    </Grid>
                                 </Border>
                                 <!-- A# (10) -->
                                 <Border Grid.Column="5" Width="24" Height="70" Background="Black" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,-12,0" Panel.ZIndex="10">
-                                    <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=10}" Opacity="0.8"/>
+                                    <Grid>
+                                        <Rectangle Fill="{Binding ScaleNotes, Converter={StaticResource ScaleNoteHighlightConverter}, ConverterParameter=10}" Opacity="0.8"/>
+                                        <TextBlock Text="X" FontSize="12" FontWeight="Bold" Foreground="#FF5555" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,5"
+                                                 Visibility="{Binding CurrentTonicIndex, Converter={StaticResource TonicMarkerVisibilityConverter}, ConverterParameter=10}"/>
+                                    </Grid>
                                 </Border>
                             </Grid>
                         </Grid>
@@ -944,7 +998,7 @@
                                 <TextBlock Text=" SCALE PREVIEW" />
                             </StackPanel>
                         </Button>
-                        <TextBlock Text="MONO SAWTHOOTH GENERATOR" FontSize="8" HorizontalAlignment="Center" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondaryBrush}" FontFamily="{DynamicResource TerminalFont}"/>
+                        <TextBlock Text="MONO SINE WAVE GENERATOR" FontSize="8" HorizontalAlignment="Center" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondaryBrush}" FontFamily="{DynamicResource TerminalFont}"/>
                     </StackPanel>
                 </Grid>
             </Border>

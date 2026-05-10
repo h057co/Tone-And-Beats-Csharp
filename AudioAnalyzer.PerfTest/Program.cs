@@ -12,6 +12,17 @@ class Program
         Console.WriteLine("=== PERFORMANCE AUDIT - Tone & Beats ===");
         Console.WriteLine();
 
+        Console.WriteLine("1. Auditoría BPM (Archivos Reales)");
+        Console.WriteLine("2. Auditoría Key (144/288 Triadas Sintéticas)");
+        Console.Write("Seleccione una opción [1]: ");
+        
+        var input = Console.ReadLine();
+        if (input == "2")
+        {
+            await KeyTestHarness.RunTestsAsync();
+            return;
+        }
+
         string testFolder = @"O:\Desarrollos\audiotest";
         if (!Directory.Exists(testFolder))
         {

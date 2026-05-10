@@ -88,6 +88,7 @@ public class MainViewModel : ViewModelBase
     private RelayCommand? _toggleKeyboardCommand;
     private RelayCommand? _playScaleCommand;
     private RelayCommand? _closeKeyboardCommand;
+    private RelayCommand? _toggleKeyDisplayCommand;
     private RelayCommand? _swapKeyCommand;
     private readonly IToneGeneratorService _toneGenerator;
     private readonly IDependencyService _dependencyService;
@@ -480,6 +481,22 @@ public class MainViewModel : ViewModelBase
         return notes;
     }
 
+    public int CurrentTonicIndex
+    {
+        get
+        {
+            if (_keyIndex < 0) return -1;
+            if (!_showRelativeKey) return _keyIndex;
+
+            // Major -> Relative Minor (-3 semitones)
+            // Minor -> Relative Major (+3 semitones)
+            if (_modeText == "Major")
+                return (_keyIndex - 3 + 12) % 12;
+            else
+                return (_keyIndex + 3) % 12;
+        }
+    }
+
     public string KeyDisplayText
     {
         get
@@ -519,6 +536,7 @@ public class MainViewModel : ViewModelBase
         if (string.IsNullOrEmpty(_keyText) || _keyText == "--") return;
         _showRelativeKey = !_showRelativeKey;
         OnPropertyChanged(nameof(KeyDisplayText));
+        OnPropertyChanged(nameof(CurrentTonicIndex));
     }
 
     public void SwapKeyValues()
@@ -538,8 +556,10 @@ public class MainViewModel : ViewModelBase
             _hasSwappedKey = true;
         }
 
+        _showRelativeKey = false; // Reset to absolute view
         _keyIndex = Array.IndexOf(NoteNames, KeyText);
         OnPropertyChanged(nameof(KeyDisplayText));
+        OnPropertyChanged(nameof(CurrentTonicIndex));
         OnPropertyChanged(nameof(ScaleNotes));
         
         if (IsPlayingScale)
@@ -593,7 +613,17 @@ public class MainViewModel : ViewModelBase
     public bool IsKeyboardOverlayVisible
     {
         get => _isKeyboardOverlayVisible;
-        set => SetProperty(ref _isKeyboardOverlayVisible, value);
+        set 
+        {
+            if (SetProperty(ref _isKeyboardOverlayVisible, value))
+            {
+                // If closing overlay, stop scale playback
+                if (!value && IsPlayingScale)
+                {
+                    IsPlayingScale = false;
+                }
+            }
+        }
     }
 
     public bool IsPlayingScale
@@ -640,6 +670,7 @@ public class MainViewModel : ViewModelBase
     public RelayCommand ToggleKeyboardCommand => _toggleKeyboardCommand ??= new RelayCommand(() => IsKeyboardOverlayVisible = !IsKeyboardOverlayVisible);
     public RelayCommand CloseKeyboardCommand => _closeKeyboardCommand ??= new RelayCommand(() => IsKeyboardOverlayVisible = false);
     public RelayCommand PlayScaleCommand => _playScaleCommand ??= new RelayCommand(() => IsPlayingScale = !IsPlayingScale);
+    public RelayCommand ToggleKeyDisplayCommand => _toggleKeyDisplayCommand ??= new RelayCommand(ToggleKeyDisplay);
     public RelayCommand SwapKeyCommand => _swapKeyCommand ??= new RelayCommand(SwapKeyValues);
 
     public bool IsAnalyzeButtonEnabled
@@ -947,7 +978,7 @@ public class MainViewModel : ViewModelBase
             var progressReporter = new Progress<int>(p => AnalysisProgress = p);
             
             // Perform full rhythmic analysis
-            _bpmAnalysisResult = await _bpmDetectorService.DetectFullAnalysisAsync(FilePath, progressReporter);
+            _bpmAnalysisResult = await _bpmDetectorService.DetectFullAnalysisAsync(FilePath, progressReporter, SelectedBpmProfile);
             
             var report = await _audioAnalysisPipeline.AnalyzeAudioAsync(FilePath, progressReporter, SelectedBpmProfile);
             
