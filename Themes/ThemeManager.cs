@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 
 namespace AudioAnalyzer.Themes;
@@ -9,6 +10,10 @@ namespace AudioAnalyzer.Themes;
 public static class ThemeManager
 {
     private static string _currentTheme = "Brutalist";
+    private static readonly string ConfigPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "ToneAndBeats",
+        "theme.cfg");
     
     private static readonly Dictionary<string, string> ThemeFiles = new()
     {
@@ -36,10 +41,10 @@ public static class ThemeManager
     public static void ApplyTheme(string themeName)
     {
         if (!ThemeFiles.ContainsKey(themeName))
-            themeName = "Dark";
+            themeName = "Brutalist"; // Cambiado a Brutalist como fallback principal
 
         if (_currentTheme == themeName)
-            return; // No hacer nada si ya está el mismo tema
+            return; 
 
         _currentTheme = themeName;
 
@@ -67,6 +72,9 @@ public static class ThemeManager
 
             // Aplicar cambios visuales
             UpdateWindowBackground(app);
+
+            // Persistir selección
+            SaveThemePreference(themeName);
 
             // Notificar cambio de tema
             OnThemeChanged(new ThemeChangedEventArgs(themeName));
@@ -101,13 +109,56 @@ public static class ThemeManager
     }
 
     /// <summary>
-    /// Inicializa el tema por defecto.
+    /// Inicializa el tema cargando la preferencia guardada o usando el valor por defecto.
     /// </summary>
     public static void Initialize()
     {
-        var theme = _currentTheme;
-        _currentTheme = ""; // Reset para que ApplyTheme no haga early return
-        ApplyTheme(theme);
+        var savedTheme = LoadThemePreference();
+        _currentTheme = ""; // Reset para forzar aplicación
+        ApplyTheme(savedTheme);
+    }
+
+    /// <summary>
+    /// Guarda la preferencia de tema en disco.
+    /// </summary>
+    private static void SaveThemePreference(string themeName)
+    {
+        try
+        {
+            var directory = Path.GetDirectoryName(ConfigPath);
+            if (!Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory!);
+            }
+            File.WriteAllText(ConfigPath, themeName);
+        }
+        catch (Exception ex)
+        {
+            Services.LoggerService.Log($"ThemeManager.SaveThemePreference error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Carga la preferencia de tema desde disco.
+    /// </summary>
+    private static string LoadThemePreference()
+    {
+        try
+        {
+            if (File.Exists(ConfigPath))
+            {
+                var theme = File.ReadAllText(ConfigPath).Trim();
+                if (ThemeFiles.ContainsKey(theme))
+                {
+                    return theme;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Services.LoggerService.Log($"ThemeManager.LoadThemePreference error: {ex.Message}");
+        }
+        return "Brutalist"; // Default
     }
 
     /// <summary>
@@ -142,3 +193,4 @@ public class ThemeChangedEventArgs : EventArgs
         ThemeName = themeName;
     }
 }
+

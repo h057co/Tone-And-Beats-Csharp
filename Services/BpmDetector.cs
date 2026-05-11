@@ -1,5 +1,6 @@
 using AudioAnalyzer.Interfaces;
 using AudioAnalyzer.Services;
+using AudioAnalyzer.Models;
 using SoundTouch;
 using System;
 using System.IO;
@@ -21,25 +22,41 @@ public class BpmDetector : IBpmDetectorService
     {
         try
         {
-            LoggerService.Log($"BpmDetector.DetectBpmAsync - Using high-precision Essentia engine for {Path.GetFileName(filePath)}");
-            progress?.Report(10);
+            // 1. Determine if we can use the Direct Path (No conversion)
+            // Bypass preprocessor for standard formats to ensure maximum precision.
+            string ext = Path.GetExtension(filePath).ToLowerInvariant();
+            bool useDirectPath = ext == ".mp3" || ext == ".wav" || ext == ".flac" || ext == ".m4a";
+            
+            string analysisPath = filePath;
+            string? tempFile = null;
 
-            // 1. Preprocess (Resample to 44.1k)
-            var preparedPath = await _preprocessor.PrepareForEssentiaAsync(filePath);
-            if (preparedPath == null)
+            if (!useDirectPath)
             {
-                LoggerService.Log("BpmDetector - Preprocessing failed, falling back to legacy engine.");
-                var (legacyP, legacyA) = await DetectLegacyAsync(filePath, progress, profile);
-                return (legacyP, legacyA);
+                LoggerService.Log($"BpmDetector.DetectBpmAsync - Using preprocessor (standardization) for {ext}");
+                tempFile = await _preprocessor.PrepareForEssentiaAsync(filePath);
+                if (tempFile == null)
+                {
+                    LoggerService.Log("BpmDetector - Preprocessing failed, falling back to legacy engine.");
+                    return await DetectLegacyAsync(filePath, progress, profile);
+                }
+                analysisPath = tempFile;
+            }
+            else
+            {
+                LoggerService.Log($"BpmDetector.DetectBpmAsync - Using DIRECT path for {ext} (Pure analysis)");
             }
 
+            LoggerService.Log($"BpmDetector.DetectBpmAsync - Analyzing {Path.GetFileName(filePath)}");
             progress?.Report(30);
 
             // 2. Essentia Analysis
-            var essentiaResult = await _essentiaWrapper.AnalyzeAsync(preparedPath);
+            var essentiaResult = await _essentiaWrapper.AnalyzeAsync(analysisPath);
             
-            // Cleanup temp file
-            if (File.Exists(preparedPath)) File.Delete(preparedPath);
+            // Cleanup temp file if created
+            if (tempFile != null && File.Exists(tempFile)) 
+            {
+                try { File.Delete(tempFile); } catch { /* Ignore cleanup errors */ }
+            }
 
             if (essentiaResult == null || essentiaResult.PrimaryBpm <= 0)
             {
@@ -72,14 +89,23 @@ public class BpmDetector : IBpmDetectorService
             }
             else
             {
-                // BIH not reliable — fall back to Essentia BPM with UrbanStrategy heuristic
-                var heuristic = new UrbanStrategyHeuristic();
-                essentiaResult = heuristic.Apply(essentiaResult);
                 finalBpm = essentiaResult.PrimaryBpm;
-                decisionPath = "essentia_heuristic";
+                decisionPath = "essentia_unreliable_bih";
             }
 
-            // Snap to integer if within 0.3 BPM
+            // 4. Final Heuristics & Snapping
+            var heuristic = new UrbanStrategyHeuristic();
+            var analysisResult = new BpmAnalysisResult 
+            { 
+                PrimaryBpm = finalBpm, 
+                Confidence = essentiaResult.Confidence,
+                AlternateBpms = new List<double> { CalculateAlternativeBpm(finalBpm) }
+            };
+            
+            heuristic.Apply(analysisResult);
+            finalBpm = analysisResult.PrimaryBpm;
+
+            // Snap to integer if within 0.4 BPM
             finalBpm = SnapToInteger(finalBpm);
 
             LoggerService.Log($"BpmDetector - Final BPM: {finalBpm:F1} (Path: {decisionPath}, " +
@@ -607,9 +633,11 @@ public class BpmDetector : IBpmDetectorService
     private double SnapToInteger(double bpm)
     {
         double rounded = Math.Round(bpm);
-        if (Math.Abs(bpm - rounded) < 0.3)
+        // Aumentamos tolerancia a 0.4 para capturar derivas de mastering, 
+        // pero evitamos el redondeo artificial si está muy lejos.
+        if (Math.Abs(bpm - rounded) < 0.4)
         {
-            LoggerService.Log($"BpmDetector.SnapToInteger - {bpm:F1} -> {rounded}");
+            LoggerService.Log($"BpmDetector.SnapToInteger - {bpm:F2} -> {rounded}");
             return rounded;
         }
         return Math.Round(bpm, 1);
@@ -820,20 +848,15 @@ public class BpmDetector : IBpmDetectorService
         }
 
         // ── Caso 4.5: Guardia ST/2 — SoundTouch detectó double-time ─────────
-        // Caso típico: ST=153.4 (double del real 76.7), SF=57.5 (sub-armónico).
-        // Ninguna fuente reporta el fundamental, pero ST/2 lo es.
-        if (stBpm > 140 && sfBpm > 0 && sfBpm < 90)
+        // Caso típico: ST=180.4 (double del real 90.2), SF=90.1.
+        // Umbral ajustado a 160 BPM según feedback del usuario.
+        if (stBpm > 160 && sfBpm > 0 && sfBpm < 115)
         {
             double stHalf = stBpm / 2.0;
-            if (Math.Abs(sfBpm - stHalf) > AGREEMENT_TOL && stHalf >= 60 && stHalf <= 120)
+            if (Math.Abs(sfBpm - stHalf) < AGREEMENT_TOL && stHalf >= 80 && stHalf <= 110)
             {
-                double sfToStHalf = sfBpm / stHalf;
-                if (sfToStHalf < 0.85) // SF es sub-armónico de ST/2
-                {
-                    LoggerService.Log($"[Vote] ST/2 GUARD: SF={sfBpm:F1} es sub-armónico de ST/2={stHalf:F1} " +
-                        $"(ratio={sfToStHalf:F3}). Prefiriendo ST/2.");
-                    return stHalf;
-                }
+                LoggerService.Log($"[Vote] ST/2 GUARD (Urban): ST={stBpm:F1} detectado como double-time. Prefiriendo mitad {stHalf:F1} BPM (SF coincide).");
+                return stHalf;
             }
         }
 

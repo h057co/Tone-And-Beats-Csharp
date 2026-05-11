@@ -29,6 +29,7 @@
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="#555555"/>
     <SolidColorBrush x:Key="KeyForegroundBrush" Color="#9B59B6"/>
     <SolidColorBrush x:Key="TitleBrush" Color="{StaticResource PrimaryAccentColor}"/>
+    <SolidColorBrush x:Key="TitleBarButtonHoverBrush" Color="#1A000000"/>
     
     <SolidColorBrush x:Key="AnalyzeButtonBrush" Color="{StaticResource SecondaryAccentColor}"/>
     <SolidColorBrush x:Key="AnalyzeButtonHoverBrush" Color="#8E44AD"/>
@@ -54,8 +55,9 @@
     <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="{StaticResource PrimaryAccentColor}"/>
     
     <!-- UI Metrics & Spacing -->
-    <CornerRadius x:Key="WindowCornerRadius">10</CornerRadius>
-    <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
+    <CornerRadius x:Key="WindowCornerRadius">12</CornerRadius>
+    <CornerRadius x:Key="HeaderCornerRadius">12,12,0,0</CornerRadius>
+    <CornerRadius x:Key="ControlCornerRadius">6</CornerRadius>
     <Thickness x:Key="MainBorderThickness">0</Thickness>
     <Thickness x:Key="ControlBorderThickness">1</Thickness>
     

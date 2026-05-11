@@ -18,9 +18,9 @@ public class UrbanStrategyHeuristic
         double originalBpm = result.PrimaryBpm;
         bool heuristicApplied = false;
 
-        // 1. Half-Time Rescue (Standard for Trap/Drill/Phonk)
-        // High range: 140-185 -> 70-92.5
-        if (originalBpm >= 140 && originalBpm <= 185)
+        // 1. Half-Time Rescue (Standard for Trap/Drill/Phonk/Reggaeton-Double)
+        // High range: > 160 -> 80+
+        if (originalBpm >= 160 && originalBpm <= 200)
         {
             result.PrimaryBpm = originalBpm / 2.0;
             result.AlternateBpms.Add(originalBpm);
@@ -39,10 +39,10 @@ public class UrbanStrategyHeuristic
             heuristicApplied = true;
         }
         // 3. Tresillo / Reggaeton Correction (1.5x relationship) - VERY CONSERVATIVE
-        // Only if confidence is low, suggesting the detector is confused by syncopation.
-        else if (result.Confidence < 0.45)
+        // Only if confidence is VERY low, suggesting the detector is definitely confused by syncopation.
+        else if (result.Confidence < 0.35)
         {
-            if (originalBpm >= 110 && originalBpm <= 135)
+            if (originalBpm >= 113 && originalBpm <= 125)
             {
                 // 115 -> 76.6 (Tresillo Down)
                 result.PrimaryBpm = originalBpm / TRESILLO_RATIO;
@@ -51,14 +51,11 @@ public class UrbanStrategyHeuristic
                 result.ReinterpretationType = "TresilloDown";
                 heuristicApplied = true;
             }
-            else if (originalBpm >= 85 && originalBpm <= 100)
+            else if (originalBpm >= 80 && originalBpm <= 110)
             {
-                // 95 -> 142.5 (Tresillo Up)
-                result.PrimaryBpm = originalBpm * TRESILLO_RATIO;
-                result.AlternateBpms.Add(originalBpm);
-                result.IsReinterpreted = true;
-                result.ReinterpretationType = "TresilloUp";
-                heuristicApplied = true;
+                // Reggaeton core: 80-110. No aplicamos tresillo automático aquí 
+                // para evitar "normalización artificial" en el rango más sensible.
+                LoggerService.Log($"UrbanStrategy - In Reggaeton core range ({originalBpm:F1}). Bypassing auto-tresillo.");
             }
         }
 

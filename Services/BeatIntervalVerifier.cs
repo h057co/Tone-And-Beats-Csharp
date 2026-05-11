@@ -80,27 +80,34 @@ public class BeatIntervalVerifier
             return new BihResult(0, 0, iqr, 0, filtered.Count, false);
         }
 
-        // Step 3: Compute median of filtered intervals
-        double medianInterval = Percentile(filtered, 50);
+        // Step 3: Compute Trimmed Mean (10%) of filtered intervals
+        // This is more precise than median for quantized music as it averages the "stable" core.
+        int trimCount = (int)(filtered.Count * 0.10);
+        var trimmed = filtered
+            .Skip(trimCount)
+            .Take(filtered.Count - 2 * trimCount)
+            .ToList();
 
-        // Step 4: BPM = 60 / median (no normalization — keep the raw value)
-        double rawBpm = 60.0 / medianInterval;
+        double averageInterval = trimmed.Count > 0 ? trimmed.Average() : filtered.Average();
 
-        // Step 5: Stability = 1.0 - (IQR / median), clamped to [0, 1]
-        double stability = medianInterval > 0
-            ? Math.Max(0, Math.Min(1.0, 1.0 - (iqr / medianInterval)))
+        // Step 4: BPM = 60 / average (no normalization — keep the raw value)
+        double rawBpm = 60.0 / averageInterval;
+
+        // Step 5: Stability = 1.0 - (IQR / average), clamped to [0, 1]
+        double stability = averageInterval > 0
+            ? Math.Max(0, Math.Min(1.0, 1.0 - (iqr / averageInterval)))
             : 0;
 
         bool isReliable = stability >= (1.0 - STABILITY_THRESHOLD_MEDIUM)
                           && filtered.Count >= MIN_BEATS;
 
-        LoggerService.Log($"[BIH] Raw={rawBpm:F1}, " +
+        LoggerService.Log($"[BIH] Raw={rawBpm:F2}, " +
             $"Stability={stability:F3}, IQR={iqr:F4}s, " +
-            $"MedianInterval={medianInterval:F4}s, " +
+            $"AvgInterval={averageInterval:F4}s (Trimmed {trimCount}), " +
             $"Intervals={filtered.Count}/{rawIntervals.Count}, " +
             $"Reliable={isReliable}");
 
-        return new BihResult(rawBpm, stability, iqr, medianInterval, filtered.Count, isReliable);
+        return new BihResult(rawBpm, stability, iqr, averageInterval, filtered.Count, isReliable);
     }
 
     /// <summary>
@@ -169,10 +176,9 @@ public class BeatIntervalVerifier
         // METRICAL AMBIGUITY CORRECTIONS (Urban Strategy integration)
         // ---------------------------------------------------------
         
-        // 1. Double-time Correction (e.g., 165 -> 82.5)
-        // If the BPM is very high (>140), it's often double-time in urban genres.
-        // We check if histPeak2 strongly suggests the half-time.
-        if (finalBpm > 140)
+        // 1. Double-time Correction (e.g., 180 -> 90)
+        // Umbral sincronizado a 160 BPM según feedback del usuario.
+        if (finalBpm > 160)
         {
             double half = finalBpm / 2.0;
             // If histPeak2 strongly suggests the half-time, use it.
