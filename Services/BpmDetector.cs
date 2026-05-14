@@ -131,36 +131,57 @@ public class BpmDetector : IBpmDetectorService
             LoggerService.Log($"BpmDetector.DetectFullAnalysisAsync - Analyzing {Path.GetFileName(filePath)} with Profile={profile}");
             progress?.Report(10);
 
-            var preparedPath = await _preprocessor.PrepareForEssentiaAsync(filePath);
-            if (preparedPath == null) return null;
+            // 1. Pure Path logic (Sync with DetectBpmAsync)
+            string ext = Path.GetExtension(filePath).ToLowerInvariant();
+            bool useDirectPath = ext == ".mp3" || ext == ".wav" || ext == ".flac" || ext == ".m4a";
+            
+            string analysisPath = filePath;
+            string? tempFile = null;
+
+            if (!useDirectPath)
+            {
+                LoggerService.Log($"BpmDetector.DetectFullAnalysisAsync - Using preprocessor for {ext}");
+                tempFile = await _preprocessor.PrepareForEssentiaAsync(filePath);
+                if (tempFile == null) return null;
+                analysisPath = tempFile;
+            }
+            else
+            {
+                LoggerService.Log($"BpmDetector.DetectFullAnalysisAsync - Using DIRECT path for {ext}");
+            }
 
             progress?.Report(30);
 
-            var result = await _essentiaWrapper.AnalyzeAsync(preparedPath);
-            if (File.Exists(preparedPath)) File.Delete(preparedPath);
+            // 2. Essentia Analysis
+            var result = await _essentiaWrapper.AnalyzeAsync(analysisPath);
+            
+            // Cleanup
+            if (tempFile != null && File.Exists(tempFile)) 
+            {
+                try { File.Delete(tempFile); } catch { }
+            }
 
             if (result == null) return null;
 
-            progress?.Report(80);
+            progress?.Report(70);
 
-            double finalBpm = result.PrimaryBpm;
-
-            // BIH Verification (same logic as DetectBpmAsync)
+            // 3. BIH Verification & Arbitration (Sync with DetectBpmAsync)
             var bihVerifier = new BeatIntervalVerifier();
             var bihResult = bihVerifier.ComputeFromBeats(result.BeatTimesSeconds);
 
+            double finalBpm;
             if (bihResult.IsReliable)
             {
-                var (bihBpm, path) = bihVerifier.Arbitrate(
-                    bihResult, 
-                    result.PrimaryBpm, 
+                var arbitration = bihVerifier.Arbitrate(
+                    bihResult,
+                    result.PrimaryBpm,
                     result.Confidence,
-                    result.HistogramPeak1Bpm, 
+                    result.HistogramPeak1Bpm,
                     result.HistogramPeak1Weight,
                     result.HistogramPeak2Bpm,
                     result.HistogramPeak2Weight);
-                if (bihBpm > 0)
-                    finalBpm = bihBpm;
+                
+                finalBpm = arbitration.bpm;
             }
             else
             {
@@ -169,10 +190,9 @@ public class BpmDetector : IBpmDetectorService
                 finalBpm = result.PrimaryBpm;
             }
 
-            // Snap to integer if within 0.3 BPM
+            // 4. Final Heuristics & Profile Constraint
             finalBpm = SnapToInteger(finalBpm);
 
-            // Apply profile constraint
             if (profile != BpmRangeProfile.Auto)
             {
                 var candidates = new List<(double bpm, double score)>();
@@ -183,10 +203,7 @@ public class BpmDetector : IBpmDetectorService
             }
 
             result.PrimaryBpm = finalBpm;
-            
-            // Generate Alternative BPM
-            double altBpm = CalculateAlternativeBpm(finalBpm);
-            result.AlternateBpms = new List<double> { altBpm };
+            result.AlternateBpms = new List<double> { CalculateAlternativeBpm(finalBpm) };
 
             progress?.Report(100);
             return result;
@@ -375,8 +392,8 @@ public class BpmDetector : IBpmDetectorService
                 gridBpm   > BpmConstants.TRAP_GRID_BPM_THRESHOLD)
             {
                 // Pasar AMBAS listas de candidatos al guard para más contexto
-                var combinedCandidates = allGridCandidates
-                    .Concat(allSfCandidates)
+                var combinedCandidates = (allGridCandidates ?? new List<(double, double)>())
+                    .Concat(allSfCandidates ?? new List<(double, double)>())
                     .ToList();
 
                 if (ShouldApplyTrapHeuristic(finalBpm, combinedCandidates))
@@ -403,7 +420,7 @@ public class BpmDetector : IBpmDetectorService
             finalBpm = SelectBestCandidateForProfile(
                 finalBpm, 
                 soundTouchBpm, 
-                allGridCandidates, 
+                allGridCandidates ?? new List<(double bpm, double score)>(), 
                 allSfCandidates ?? new List<(double bpm, double score)>(), 
                 profile);
 
@@ -659,7 +676,7 @@ public class BpmDetector : IBpmDetectorService
     /// </summary>
     private float[] ApplyTransientEnhancementFilter(float[] samples)
     {
-        if (samples == null || samples.Length == 0) return samples;
+        if (samples == null || samples.Length == 0) return Array.Empty<float>();
 
         float[] filtered = new float[samples.Length];
         filtered[0] = samples[0];
@@ -733,7 +750,7 @@ public class BpmDetector : IBpmDetectorService
         double stBpm,
         double gridBpm,  double gridConf,
         double sfBpm,    double sfConf,
-        List<(double bpm, double score)> allGridCandidates = null)
+        List<(double bpm, double score)>? allGridCandidates = null)
     {
         const double AGREEMENT_TOL = 5.0; // BPM — margen para considerar acuerdo
 

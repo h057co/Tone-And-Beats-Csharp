@@ -23,7 +23,8 @@ namespace AudioAnalyzer.Services
         public UpdateService()
         {
             _httpClient = new HttpClient();
-            _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("ToneAndBeats", "1.2.0"));
+            var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0";
+            _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("ToneAndBeats", version));
         }
 
         public async Task<UpdateInfo?> CheckForUpdatesAsync()

@@ -112,7 +112,7 @@
                                Foreground="{DynamicResource TitleBrush}" HorizontalAlignment="Center"/>
                     <TextBlock Text="BY HOSTILITY" FontSize="14" FontWeight="Bold" 
                                Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" Margin="0,-5,0,0"/>
-                    <TextBlock x:Name="VersionText" Text="VERSION 1.2.0" FontSize="10" 
+                    <TextBlock x:Name="VersionText" Text="VERSION" FontSize="10" 
                                Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,5,0,0"/>
                 </StackPanel>
                 
@@ -157,18 +157,31 @@
                             
                             <Border Style="{StaticResource BrutalistSectionBorder}">
                                 <StackPanel>
-                                     <TextBlock Text="NAUDIO" FontWeight="Bold" FontSize="12"/>
-                                     <TextBlock Text="MARK HEATH | MS-PL" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                     <TextBlock Text="NAUDIO 2.2.1" FontWeight="Bold" FontSize="12"/>
+                                     <TextBlock Text="MARK HEATH | MIT" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                     <TextBlock Text="Audio playback, waveform generation, tone synthesis" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,2,0,2"/>
                                      <TextBlock FontSize="9">
                                          <Hyperlink NavigateUri="https://github.com/naudio/NAudio" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">[ GITHUB ]</Hyperlink>
+                                     </TextBlock>
+                                 </StackPanel>
+                             </Border>
+
+                            <Border Style="{StaticResource BrutalistSectionBorder}">
+                                <StackPanel>
+                                     <TextBlock Text="NAUDIO.VORBIS 1.5.0" FontWeight="Bold" FontSize="12"/>
+                                     <TextBlock Text="NAUDIO | MIT" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                     <TextBlock Text="OGG Vorbis audio format support" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,2,0,2"/>
+                                     <TextBlock FontSize="9">
+                                         <Hyperlink NavigateUri="https://github.com/naudio/Vorbis" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">[ GITHUB ]</Hyperlink>
                                      </TextBlock>
                                  </StackPanel>
                              </Border>
                             
                             <Border Style="{StaticResource BrutalistSectionBorder}">
                                 <StackPanel>
-                                     <TextBlock Text="TAGLIBSHARP" FontWeight="Bold" FontSize="12"/>
-                                     <TextBlock Text="MONO | LGPL-2.1" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                     <TextBlock Text="TAGLIBSHARP 2.3.0" FontWeight="Bold" FontSize="12"/>
+                                     <TextBlock Text="MONO PROJECT | LGPL-2.1" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                     <TextBlock Text="Audio metadata reading and writing (BPM, Key tags)" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,2,0,2"/>
                                      <TextBlock FontSize="9">
                                          <Hyperlink NavigateUri="https://github.com/mono/taglib-sharp" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">[ GITHUB ]</Hyperlink>
                                      </TextBlock>
@@ -177,8 +190,9 @@
                             
                             <Border Style="{StaticResource BrutalistSectionBorder}">
                                 <StackPanel>
-                                     <TextBlock Text="SOUNDTOUCH.NET" FontWeight="Bold" FontSize="12"/>
+                                     <TextBlock Text="SOUNDTOUCH.NET 2.3.2" FontWeight="Bold" FontSize="12"/>
                                      <TextBlock Text="OLAF WOUDENBERG | LGPL-2.1" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                     <TextBlock Text="Audio time-stretching and pitch-shifting" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,2,0,2"/>
                                      <TextBlock FontSize="9">
                                          <Hyperlink NavigateUri="https://github.com/owoudenberg/soundtouch.net" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">[ GITHUB ]</Hyperlink>
                                      </TextBlock>
@@ -187,20 +201,68 @@
                             
                             <Border Style="{StaticResource BrutalistSectionBorder}">
                                 <StackPanel>
-                                     <TextBlock Text="FFMPEGCORE" FontWeight="Bold" FontSize="12"/>
-                                     <TextBlock Text="INDEXIS | LGPL-2.1" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                     <TextBlock Text="FFMPEGCORE 5.1.0" FontWeight="Bold" FontSize="12"/>
+                                     <TextBlock Text="VLAD JERCA | MIT" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                     <TextBlock Text=".NET wrapper for FFmpeg CLI operations" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,2,0,2"/>
                                      <TextBlock FontSize="9">
                                          <Hyperlink NavigateUri="https://github.com/rosenbjerg/FFMpegCore" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">[ GITHUB ]</Hyperlink>
                                      </TextBlock>
                                  </StackPanel>
                              </Border>
-                            
+
+                            <Border Style="{StaticResource BrutalistSectionBorder}">
+                                <StackPanel>
+                                     <TextBlock Text="MEDIAINFO.WRAPPER.CORE 26.1.0" FontWeight="Bold" FontSize="12"/>
+                                     <TextBlock Text="MEDIAAREA | BSD-2-CLAUSE" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                     <TextBlock Text="Detailed audio file metadata extraction (bitrate, codec)" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,2,0,2"/>
+                                     <TextBlock FontSize="9">
+                                         <Hyperlink NavigateUri="https://github.com/MediaArea/MediaInfoLib" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">[ GITHUB ]</Hyperlink>
+                                     </TextBlock>
+                                 </StackPanel>
+                             </Border>
+
+                            <Border Style="{StaticResource BrutalistSectionBorder}">
+                                <StackPanel>
+                                     <TextBlock Text="SKIASHARP 2.88.8" FontWeight="Bold" FontSize="12"/>
+                                     <TextBlock Text="MONO / MICROSOFT | MIT" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                     <TextBlock Text="2D graphics engine for waveform rendering" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,2,0,2"/>
+                                     <TextBlock FontSize="9">
+                                         <Hyperlink NavigateUri="https://github.com/mono/SkiaSharp" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">[ GITHUB ]</Hyperlink>
+                                     </TextBlock>
+                                 </StackPanel>
+                             </Border>
+
+                            <Border Style="{StaticResource BrutalistSectionBorder}">
+                                <StackPanel>
+                                     <TextBlock Text="ARDALIS.SPECIFICATION 9.3.1" FontWeight="Bold" FontSize="12"/>
+                                     <TextBlock Text="STEVE SMITH | MIT" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                     <TextBlock Text="Specification pattern for query abstractions" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,2,0,2"/>
+                                     <TextBlock FontSize="9">
+                                         <Hyperlink NavigateUri="https://github.com/ardalis/Specification" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">[ GITHUB ]</Hyperlink>
+                                     </TextBlock>
+                                 </StackPanel>
+                             </Border>
+
+                            <TextBlock Text=">_ EXTERNAL TOOLS:" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" Margin="0,10,0,8"/>
+
                             <Border Style="{StaticResource BrutalistSectionBorder}">
                                 <StackPanel>
                                      <TextBlock Text="FFMPEG" FontWeight="Bold" FontSize="12"/>
-                                     <TextBlock Text="FFMPEG TEAM | GPL-3.0" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                     <TextBlock Text="FFMPEG TEAM | GPL-3.0 / LGPL-2.1" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                     <TextBlock Text="Audio decoding, loudness analysis (LUFS/LRA)" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,2,0,2"/>
                                      <TextBlock FontSize="9">
                                          <Hyperlink NavigateUri="https://ffmpeg.org" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">[ FFMPEG.ORG ]</Hyperlink>
+                                     </TextBlock>
+                                 </StackPanel>
+                             </Border>
+
+                            <Border Style="{StaticResource BrutalistSectionBorder}">
+                                <StackPanel>
+                                     <TextBlock Text="ESSENTIA" FontWeight="Bold" FontSize="12"/>
+                                     <TextBlock Text="MTG / UPF | AGPL-3.0" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                     <TextBlock Text="BPM detection engine (streaming extractor)" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,2,0,2"/>
+                                     <TextBlock FontSize="9">
+                                         <Hyperlink NavigateUri="https://github.com/MTG/essentia" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{DynamicResource AccentBrush}">[ GITHUB ]</Hyperlink>
                                      </TextBlock>
                                  </StackPanel>
                              </Border>

@@ -15,7 +15,7 @@
      <FileVersion>1.2.0.0</FileVersion>
      <AssemblyVersion>1.2.0.0</AssemblyVersion>
     <ApplicationIcon>Assets\HOSTBLANCO.ico</ApplicationIcon>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
   </PropertyGroup>
 

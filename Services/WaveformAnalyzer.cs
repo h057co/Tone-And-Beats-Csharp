@@ -13,11 +13,11 @@ public class WaveformAnalyzer : IWaveformAnalyzerService
     private const int TopKCandidates = 5;
 
     // Cache de transientes para BpmDetector
-    private List<(double position, double amplitude)> _lastTransients;
+    private List<(double position, double amplitude)> _lastTransients = new();
     private double _lastSegmentDuration;
 
     public List<(double position, double amplitude)> GetLastTransients()
-        => _lastTransients ?? new List<(double, double)>();
+        => _lastTransients;
 
     public async Task<WaveformData> AnalyzeAsync(string filePath, double? globalBpm = null)
     {

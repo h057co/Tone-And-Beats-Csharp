@@ -24,6 +24,7 @@ public class AudioAnalysisReport
 {
     public double Bpm { get; set; }
     public double AlternativeBpm { get; set; }
+    public BpmAnalysisResult? BpmResult { get; set; }
     public string Key { get; set; } = "Unknown";
     public string Mode { get; set; } = "";
     public string AlternativeKey { get; set; } = "";

@@ -80,6 +80,14 @@ public class AudioPlayerService : IAudioPlayerService
         }
     }
 
+    public void SetVolume(float volume)
+    {
+        if (_waveOut != null)
+        {
+            _waveOut.Volume = Math.Clamp(volume, 0f, 1f);
+        }
+    }
+
     public float GetSampleRate()
     {
         return _audioFile?.WaveFormat.SampleRate ?? 44100;

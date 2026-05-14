@@ -150,14 +150,14 @@ public partial class AboutWindow : Window
             var version = assembly.GetName().Version;
             if (version != null)
             {
-                VersionText.Text = $"Versión {version.Major}.{version.Minor}.{version.Build}";
-                LoggerService.Log($"AboutWindow - Versión detectada: {VersionText.Text}");
+                VersionText.Text = $"VERSION {version.Major}.{version.Minor}.{version.Build}";
+                LoggerService.Log($"AboutWindow - Version detected: {VersionText.Text}");
             }
         }
         catch (Exception ex)
         {
-            LoggerService.Log($"AboutWindow - Error al obtener versión: {ex.Message}");
-            VersionText.Text = "Versión 1.1.0"; // Fallback
+            LoggerService.Log($"AboutWindow - Error getting version: {ex.Message}");
+            VersionText.Text = "VERSION ---"; // Fallback
         }
     }
 

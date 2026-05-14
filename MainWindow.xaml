@@ -41,6 +41,7 @@
         <infra:TonicMarkerVisibilityConverter x:Key="TonicMarkerVisibilityConverter"/>
         <infra:DoubleToVisibilityConverter x:Key="DoubleToVisibilityConverter"/>
         <infra:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
+        <infra:ProgressWidthConverter x:Key="ProgressWidthConverter"/>
         <Style TargetType="Button">
             <Setter Property="Background" Value="{DynamicResource ButtonBackgroundBrush}"/>
             <Setter Property="Foreground" Value="White"/>
@@ -115,7 +116,39 @@
             <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
             <Setter Property="FontSize" Value="13"/>
         </Style>
-        
+
+        <Style x:Key="TransportButton" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource ResultBoxBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" 
+                                Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{DynamicResource ControlCornerRadius}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Opacity" Value="0.3"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="ResultBox" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource ResultBoxBackgroundBrush}"/>
             <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}"/>
@@ -267,11 +300,11 @@
                                    FontSize="16"
                                    FontWeight="ExtraBold"
                                    FontFamily="{DynamicResource TerminalFont}"/>
-                        <TextBlock Text=" [ AUDIO ANALYZER v1.3 ]" 
+                        <TextBlock Text="{Binding AppVersion, StringFormat=' [ AUDIO ANALYZER {0} ]'}" 
                                    Foreground="{DynamicResource TextSecondaryBrush}" 
                                    VerticalAlignment="Bottom"
                                    Margin="5,0,0,2"
-                                   FontSize="9"
+                                   FontSize="10"
                                    FontFamily="{DynamicResource TerminalFont}"/>
                     </StackPanel>
                     
@@ -279,8 +312,8 @@
                     <Border Grid.Column="1" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" 
                             Margin="0,2,15,2" Padding="8,2" VerticalAlignment="Center" HorizontalAlignment="Right">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="SYSTEM STATUS" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,5,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="OK" FontSize="10" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" VerticalAlignment="Center"/>
+                            <TextBlock Text="SYSTEM STATUS" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="OK" FontSize="11" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
 
@@ -291,7 +324,7 @@
                                 WindowChrome.IsHitTestVisibleInChrome="True"
                                 Click="Minimize_Click" 
                                 AutomationProperties.Name="Minimize"
-                                FontSize="10" Cursor="Hand">
+                                FontSize="11" Cursor="Hand">
                             <Button.Style>
                                 <Style TargetType="Button">
                                     <Setter Property="Background" Value="Transparent"/>
@@ -319,7 +352,7 @@
                                 WindowChrome.IsHitTestVisibleInChrome="True"
                                 Click="Maximize_Click" 
                                 AutomationProperties.Name="Maximize"
-                                FontSize="10" Cursor="Hand">
+                                FontSize="11" Cursor="Hand">
                             <Button.Style>
                                 <Style TargetType="Button">
                                     <Setter Property="Background" Value="Transparent"/>
@@ -382,17 +415,17 @@
                     <ScaleTransform x:Name="ContentScale" ScaleX="1" ScaleY="1"/>
                 </Grid.LayoutTransform>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>              <!-- Row 0: Title -->
+                    <RowDefinition Height="Auto"/>              <!-- Row 1: File Selection -->
+                    <RowDefinition Height="Auto"/>              <!-- Row 2: Audio Info -->
+                    <RowDefinition Height="*" MinHeight="60"/>  <!-- Row 3: Waveform (flexible) -->
+                    <RowDefinition Height="Auto"/>              <!-- Row 4: Loudness -->
+                    <RowDefinition Height="Auto"/>              <!-- Row 5: Playback -->
+                    <RowDefinition Height="Auto"/>              <!-- Row 6: Status -->
+                    <RowDefinition Height="Auto"/>              <!-- Row 7: BPM Range -->
+                    <RowDefinition Height="Auto"/>              <!-- Row 8: Analyze -->
+                    <RowDefinition Height="Auto" MinHeight="80"/> <!-- Row 9: Results -->
+                    <RowDefinition Height="28"/>               <!-- Row 10: Footer (fixed) -->
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -450,7 +483,7 @@
         <!-- Row 2: Audio File Info (Dynamic Summary) -->
         <Border Grid.Row="2" Style="{StaticResource ResultBox}">
             <TextBlock Text="{Binding AudioInfoSummary}" 
-                       FontSize="11" 
+                       FontSize="13" 
                        FontWeight="Bold"
                        Foreground="{DynamicResource ForegroundBrush}"
                        HorizontalAlignment="Center"
@@ -468,10 +501,10 @@
                 
                 <!-- Waveform Header -->
                 <Grid Grid.Row="0" Margin="5,2">
-                    <TextBlock Text="WAVEFORM" FontSize="9" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontFamily="{DynamicResource TerminalFont}"/>
+                    <TextBlock Text="WAVEFORM" FontSize="10" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontFamily="{DynamicResource TerminalFont}"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <TextBlock Text="DURATION: " FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" FontFamily="{DynamicResource TerminalFont}"/>
-                        <TextBlock Text="{Binding DurationText}" FontSize="8" Foreground="{DynamicResource ForegroundBrush}" FontFamily="{DynamicResource TerminalFont}"/>
+                        <TextBlock Text="DURATION: " FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}" FontFamily="{DynamicResource TerminalFont}"/>
+                        <TextBlock Text="{Binding DurationText}" FontSize="9" Foreground="{DynamicResource ForegroundBrush}" FontFamily="{DynamicResource TerminalFont}"/>
                     </StackPanel>
                 </Grid>
                 
@@ -493,7 +526,7 @@
                     <TextBlock Text="LUFS" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
                     <TextBlock Text="{Binding LoudnessIntegratedDisplay}" FontSize="20" FontWeight="Bold" 
                               Foreground="{Binding LoudnessIntegratedLevel, Converter={StaticResource LevelToBrushConverter}}" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Integrated" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Integrated" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
                 </StackPanel>
 
                 <!-- LRA -->
@@ -501,7 +534,7 @@
                     <TextBlock Text="LRA" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
                     <TextBlock Text="{Binding LoudnessLraDisplay}" FontSize="20" FontWeight="Bold" 
                               Foreground="{DynamicResource ForegroundBrush}" HorizontalAlignment="Center"/>
-                    <TextBlock Text="LRA" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="LRA" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
                 </StackPanel>
 
                 <!-- True Peak -->
@@ -509,7 +542,7 @@
                     <TextBlock Text="True Peak" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
                     <TextBlock Text="{Binding LoudnessTruePeakDisplay}" FontSize="20" FontWeight="Bold" 
                                Foreground="{Binding LoudnessTruePeakLevel, Converter={StaticResource LevelToBrushConverter}}" HorizontalAlignment="Center"/>
-                    <TextBlock Text="dBFS" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="dBFS" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -518,9 +551,35 @@
         <Border Grid.Row="5" Style="{StaticResource ResultBox}">
             <StackPanel HorizontalAlignment="Center">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,5,0,10">
-                    <Button Content="▶ Play" Command="{Binding PlayCommand}" Width="80" Margin="5"/>
-                    <Button Content="⏸ Pause" Command="{Binding PauseCommand}" Width="80" Margin="5"/>
-                    <Button Content="⏹ Stop" Command="{Binding StopCommand}" Width="80" Margin="5"/>
+                    <Button Content="▶ Play" Command="{Binding PlayCommand}" Width="80" Margin="5">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource TransportButton}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentPlaybackState}" Value="Playing">
+                                        <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                        <Setter Property="BorderBrush" Value="White"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <Button Content="⏸ Pause" Command="{Binding PauseCommand}" Width="80" Margin="5">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource TransportButton}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentPlaybackState}" Value="Paused">
+                                        <Setter Property="Background" Value="{DynamicResource SecondaryAccentBrush}"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                        <Setter Property="BorderBrush" Value="White"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <Button Content="⏹ Stop" Command="{Binding StopCommand}" Style="{StaticResource TransportButton}" Width="80" Margin="5"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                     <TextBlock Text="{Binding PositionText}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
@@ -674,12 +733,12 @@
                 </TextBlock>
 
                 <!-- Confidence BPM (Row 2) -->
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding BpmConfidence}" FontSize="9"
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding BpmConfidence}" FontSize="10"
                            HorizontalAlignment="Center" TextAlignment="Center"
                            Foreground="{DynamicResource TextSecondaryBrush}"/>
 
                 <!-- Alternative BPM (Row 3) - espacio siempre reservado -->
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding AlternativeBpmText}" FontSize="10" FontStyle="Italic"
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding AlternativeBpmText}" FontSize="11" FontStyle="Italic"
                            HorizontalAlignment="Center" TextAlignment="Center"
                            Margin="0,2,0,0"
                            MouseLeftButtonDown="BpmSwap_Click" Cursor="Hand"
@@ -728,7 +787,7 @@
                                VerticalAlignment="Center"
                                Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,2"/>
                     <Button Command="{Binding ToggleKeyboardCommand}" 
-                            Content="⌨" FontSize="10" Padding="4,0" Height="16" Margin="8,0,0,0"
+                            Content="⌨" FontSize="11" Padding="4,0" Height="18" Margin="8,0,0,0"
                             Style="{StaticResource SaveMetadataButton}" ToolTip="Ver escala en teclado"/>
                 </StackPanel>
 
@@ -745,7 +804,7 @@
 
                 <!-- Confidence KEY (Row 2) -->
                 <StackPanel Grid.Row="2" Grid.Column="2" HorizontalAlignment="Center">
-                    <TextBlock Text="{Binding KeyConfidence}" FontSize="9"
+                    <TextBlock Text="{Binding KeyConfidence}" FontSize="10"
                               HorizontalAlignment="Center" TextAlignment="Center"
                               Foreground="{DynamicResource TextSecondaryBrush}"/>
                     <ProgressBar Value="{Binding KeyConfidenceValue}" Height="2" Width="40" 
@@ -756,7 +815,7 @@
                 </StackPanel>
 
                 <!-- Tuning KEY (Row 3) -->
-                <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding TuningText}" FontSize="9"
+                <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding TuningText}" FontSize="10"
                           HorizontalAlignment="Center" TextAlignment="Center">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
@@ -773,7 +832,7 @@
         </Border>
         
         <!-- Row 10: Consolidated Technical Footer -->
-        <Border Grid.Row="10" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Margin="0,10,0,0" Padding="10,5">
+        <Border Grid.Row="10" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="10,2" VerticalAlignment="Bottom">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -782,22 +841,22 @@
                 </Grid.ColumnDefinitions>
                 
                 <!-- Left: Engine Info -->
-                <TextBlock Grid.Column="0" Text="{Binding FooterText}" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" FontFamily="{DynamicResource TerminalFont}"/>
+                <TextBlock Grid.Column="0" Text="{Binding FooterText}" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" FontFamily="{DynamicResource TerminalFont}"/>
                 
                 <!-- Center: Headroom & About -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
-                    <TextBlock Text="HEADROOM: " FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" FontFamily="{DynamicResource TerminalFont}"/>
-                    <TextBlock Text="{Binding HeadroomText}" FontSize="8" Foreground="{DynamicResource ForegroundBrush}" FontWeight="Bold" VerticalAlignment="Center" FontFamily="{DynamicResource TerminalFont}" Margin="0,0,15,0"/>
+                    <TextBlock Text="HEADROOM: " FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" FontFamily="{DynamicResource TerminalFont}"/>
+                    <TextBlock Text="{Binding HeadroomText}" FontSize="9" Foreground="{DynamicResource ForegroundBrush}" FontWeight="Bold" VerticalAlignment="Center" FontFamily="{DynamicResource TerminalFont}" Margin="0,0,15,0"/>
                     
                     <Button Content="[ ACERCA DE ]" Click="AboutButton_Click" 
                             Background="Transparent" BorderThickness="0"
                             Foreground="{DynamicResource AccentBrush}"
-                            FontSize="8" Cursor="Hand" VerticalAlignment="Center"
+                            FontSize="9" Cursor="Hand" VerticalAlignment="Center"
                             FontFamily="{DynamicResource TerminalFont}"/>
                 </StackPanel>
                 
                 <!-- Right: Brand Link -->
-                <TextBlock Grid.Column="2" FontSize="8" HorizontalAlignment="Right" VerticalAlignment="Center" FontFamily="{DynamicResource TerminalFont}">
+                <TextBlock Grid.Column="2" FontSize="9" HorizontalAlignment="Right" VerticalAlignment="Center" FontFamily="{DynamicResource TerminalFont}">
                     <Hyperlink NavigateUri="https://www.hostilitymusic.com" 
                                Foreground="{DynamicResource TextSecondaryBrush}"
                                RequestNavigate="Hyperlink_RequestNavigate"
@@ -842,7 +901,7 @@
                     
                     <!-- Header -->
                     <Grid Grid.Row="0" Margin="{DynamicResource SectionMargin}">
-                        <TextBlock Text="SCALE ANALYSIS / KEYBOARD VIEW" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" FontFamily="{DynamicResource TerminalFont}"/>
+                        <TextBlock Text="SCALE ANALYSIS / KEYBOARD VIEW" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" FontFamily="{DynamicResource TerminalFont}"/>
                         <Button HorizontalAlignment="Right" Content="[ X ]" Command="{Binding CloseKeyboardCommand}"
                                 Background="Transparent" BorderThickness="0" Foreground="White" Cursor="Hand" FontFamily="{DynamicResource TerminalFont}"/>
                     </Grid>
@@ -855,8 +914,25 @@
                                 <TextBlock Text="{Binding KeyDisplayText}" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource KeyForegroundBrush}" FontFamily="{DynamicResource TerminalFont}"
                                            ToolTip="Click to toggle relative key"/>
                             </Button>
-                            <Button Command="{Binding SwapKeyCommand}" Background="Transparent" BorderThickness="0" Padding="4,0" Margin="10,0,0,0" Cursor="Hand" ToolTip="Swap with alternative result">
-                                <TextBlock Text="[SWAP]" FontSize="8" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
+                            <Button Command="{Binding ToggleKeyDisplayCommand}" Background="Transparent" BorderThickness="0" Padding="4,0" Margin="10,0,0,0" Cursor="Hand" ToolTip="Toggle relative major/minor">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Content">
+                                            <Setter.Value>
+                                                <TextBlock Text="[ REL ]" FontSize="9" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" FontFamily="{DynamicResource TerminalFont}"/>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsRelativeModeActive}" Value="True">
+                                                <Setter Property="Content">
+                                                    <Setter.Value>
+                                                        <TextBlock Text="[ REL ]" FontSize="9" Foreground="{DynamicResource KeyForegroundBrush}" VerticalAlignment="Center" FontWeight="Bold" FontFamily="{DynamicResource TerminalFont}"/>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
                             </Button>
                         </StackPanel>
                     </Border>
@@ -998,7 +1074,7 @@
                                 <TextBlock Text=" SCALE PREVIEW" />
                             </StackPanel>
                         </Button>
-                        <TextBlock Text="MONO SINE WAVE GENERATOR" FontSize="8" HorizontalAlignment="Center" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondaryBrush}" FontFamily="{DynamicResource TerminalFont}"/>
+                        <TextBlock Text="MONO SINE WAVE GENERATOR" FontSize="9" HorizontalAlignment="Center" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondaryBrush}" FontFamily="{DynamicResource TerminalFont}"/>
                     </StackPanel>
                 </Grid>
             </Border>
@@ -1024,7 +1100,7 @@
                     <TextBlock Text="! CRITICAL DEPENDENCY MISSING" FontSize="14" FontWeight="Bold" Foreground="#ff5555" HorizontalAlignment="Center" Margin="0,0,0,15" FontFamily="{DynamicResource TerminalFont}"/>
                     
                     <TextBlock Text="Tone &amp; Beats requires FFmpeg binaries for Loudness analysis and advanced audio processing." 
-                               TextWrapping="Wrap" TextAlignment="Center" FontSize="11" Margin="0,0,0,20" Foreground="{DynamicResource ForegroundBrush}"/>
+                               TextWrapping="Wrap" TextAlignment="Center" FontSize="13" Margin="0,0,0,20" Foreground="{DynamicResource ForegroundBrush}"/>
                     
                     <!-- Action -->
                     <Button Content=">_ RESOLVE &amp; DOWNLOAD FFmpeg" 
@@ -1035,16 +1111,172 @@
                     
                     <!-- Progress -->
                     <StackPanel Margin="0,20,0,0" Visibility="{Binding IsDownloading, Converter={StaticResource BoolToVisibilityConverter}}">
-                        <TextBlock Text="DOWNLOADING BINARIES..." FontSize="9" HorizontalAlignment="Center" Margin="0,0,0,5" FontFamily="{DynamicResource TerminalFont}"/>
+                        <TextBlock Text="DOWNLOADING BINARIES..." FontSize="10" HorizontalAlignment="Center" Margin="0,0,0,5" FontFamily="{DynamicResource TerminalFont}"/>
                         <ProgressBar Value="{Binding DownloadProgress}" Maximum="100" Height="10" 
                                      Foreground="{DynamicResource AccentBrush}" Background="{DynamicResource ProgressBarBackgroundBrush}"/>
-                        <TextBlock Text="{Binding DownloadProgress, StringFormat={}{0:F0}%}" FontSize="8" HorizontalAlignment="Center" Margin="0,5,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock Text="{Binding DownloadProgress, StringFormat={}{0:F0}%}" FontSize="9" HorizontalAlignment="Center" Margin="0,5,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </StackPanel>
                     
-                    <TextBlock Text="* Requires active internet connection" FontSize="8" HorizontalAlignment="Center" Margin="0,20,0,0" Foreground="{DynamicResource TextSecondaryBrush}" FontFamily="{DynamicResource TerminalFont}"/>
+                    <TextBlock Text="* Requires active internet connection" FontSize="9" HorizontalAlignment="Center" Margin="0,20,0,0" Foreground="{DynamicResource TextSecondaryBrush}" FontFamily="{DynamicResource TerminalFont}"/>
                 </StackPanel>
             </Border>
         </Grid>
+        
+        <!-- Analysis Loading Overlay -->
+        <Border x:Name="AnalysisOverlay" Grid.Row="0" Grid.RowSpan="99"
+                CornerRadius="{DynamicResource WindowCornerRadius}"
+                IsHitTestVisible="True"
+                Visibility="Collapsed" Opacity="0">
+            <Border.Background>
+                <SolidColorBrush Color="Black" Opacity="0.82"/>
+            </Border.Background>
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsAnalyzingInProgress}" Value="True">
+                            <DataTrigger.EnterActions>
+                                <BeginStoryboard x:Name="OverlayFadeIn">
+                                    <Storyboard>
+                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetProperty="Visibility">
+                                            <DiscreteObjectKeyFrame KeyTime="0:0:0" Value="{x:Static Visibility.Visible}"/>
+                                        </ObjectAnimationUsingKeyFrames>
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                         From="0" To="1" Duration="0:0:0.3">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.EnterActions>
+                            <DataTrigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                         From="1" To="0" Duration="0:0:0.5">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseIn"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetProperty="Visibility">
+                                            <DiscreteObjectKeyFrame KeyTime="0:0:0.5" Value="{x:Static Visibility.Collapsed}"/>
+                                        </ObjectAnimationUsingKeyFrames>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                                <StopStoryboard BeginStoryboardName="OverlayFadeIn"/>
+                            </DataTrigger.ExitActions>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            
+            <Grid>
+                <!-- Animated scan line effect -->
+                <Border Height="1" VerticalAlignment="Top" Opacity="0.15" IsHitTestVisible="False">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                            <GradientStop Color="Transparent" Offset="0"/>
+                            <GradientStop Color="{DynamicResource PrimaryAccentColor}" Offset="0.5"/>
+                            <GradientStop Color="Transparent" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Border.RenderTransform>
+                        <TranslateTransform x:Name="ScanLineTranslate" Y="0"/>
+                    </Border.RenderTransform>
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsAnalyzingInProgress}" Value="True">
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard x:Name="ScanLineStoryboard">
+                                            <Storyboard RepeatBehavior="Forever">
+                                                <DoubleAnimation
+                                                    Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                    From="0" To="700" Duration="0:0:3"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                    <DataTrigger.ExitActions>
+                                        <StopStoryboard BeginStoryboardName="ScanLineStoryboard"/>
+                                    </DataTrigger.ExitActions>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                </Border>
+                
+                <!-- Center content -->
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="280">
+                    
+                    <!-- Terminal-style header -->
+                    <TextBlock Text="TONE&amp;BEATS.EXE" 
+                               FontSize="18" FontWeight="ExtraBold"
+                               Foreground="{DynamicResource AccentBrush}"
+                               HorizontalAlignment="Center" Margin="0,0,0,4"
+                               FontFamily="{DynamicResource TerminalFont}"/>
+                    
+                    <TextBlock Text="AUDIO ANALYSIS IN PROGRESS" 
+                               FontSize="10" FontWeight="Bold"
+                               Foreground="White" Opacity="0.6"
+                               HorizontalAlignment="Center" Margin="0,0,0,25"
+                               FontFamily="{DynamicResource TerminalFont}"/>
+                    
+                    <!-- Pulsing indicator -->
+                    <Border Width="6" Height="6" CornerRadius="3" 
+                            Background="{DynamicResource AccentBrush}" 
+                            HorizontalAlignment="Center" Margin="0,0,0,20">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsAnalyzingInProgress}" Value="True">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="PulseIndicator">
+                                                <Storyboard RepeatBehavior="Forever">
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                     From="1" To="0.2" Duration="0:0:0.8"
+                                                                     AutoReverse="True"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="PulseIndicator"/>
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                    </Border>
+                    
+                    <!-- Stage text -->
+                    <TextBlock Text="{Binding AnalysisStageText}" 
+                               FontSize="11" FontWeight="SemiBold"
+                               Foreground="{DynamicResource AccentBrush}"
+                               HorizontalAlignment="Center" Margin="0,0,0,15"
+                               FontFamily="{DynamicResource TerminalFont}"/>
+                    
+                    <!-- Progress bar container -->
+                    <Border CornerRadius="2" Height="4" 
+                            Background="#1AFFFFFF" Margin="20,0,20,8">
+                        <Border CornerRadius="2" HorizontalAlignment="Left"
+                                Background="{DynamicResource AccentBrush}">
+                            <Border.Width>
+                                <MultiBinding Converter="{StaticResource ProgressWidthConverter}">
+                                    <Binding Path="AnalysisProgress"/>
+                                    <Binding RelativeSource="{RelativeSource AncestorType=Border, AncestorLevel=2}" Path="ActualWidth"/>
+                                </MultiBinding>
+                            </Border.Width>
+                        </Border>
+                    </Border>
+                    
+                    <!-- Percentage -->
+                    <TextBlock Text="{Binding AnalysisProgress, StringFormat='{}{0:F0}%'}" 
+                               FontSize="9"
+                               Foreground="White" Opacity="0.5"
+                               HorizontalAlignment="Center" Margin="0,0,0,0"
+                               FontFamily="{DynamicResource TerminalFont}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </Border>
 </Window>

@@ -7,6 +7,7 @@ using AudioAnalyzer.Infrastructure;
 using AudioAnalyzer.Interfaces;
 using AudioAnalyzer.Models;
 using AudioAnalyzer.Services;
+using System.Reflection;
 using AudioAnalyzer.Themes;
 
 namespace AudioAnalyzer.ViewModels;
@@ -57,13 +58,10 @@ public class MainViewModel : ViewModelBase
     private RelayCommand? _openUrlCommand;
     private double _originalBpm;
     private double _displayBpm;
-    private bool _bpmAdjusted;
-    private string _bpmModifierText = "";
     private BpmAnalysisResult? _bpmAnalysisResult;
     private RelayCommand? _swapBpmCommand;
     private double _originalAlternativeBpm;  // Almacena el BPM alternativo original detectado
     private bool _hasSwappedBpm;              // Tracking: true si el usuario ha intercambiado
-    private int _bpmCycleState = 0;           // 0=original, 1=×2, 2=÷2
     private BpmRangeProfile _selectedBpmProfile = BpmRangeProfile.Auto;
     private string _audioFileType = "";
     private string _sampleRateText = "";
@@ -90,7 +88,6 @@ public class MainViewModel : ViewModelBase
     private RelayCommand? _closeKeyboardCommand;
     private RelayCommand? _toggleKeyDisplayCommand;
     private RelayCommand? _swapKeyCommand;
-    private readonly IToneGeneratorService _toneGenerator;
     private readonly IDependencyService _dependencyService;
 
     // Dependency Properties
@@ -115,6 +112,8 @@ public class MainViewModel : ViewModelBase
         set => SetProperty(ref _isDependencyMissing, value);
     }
 
+    public string AppVersion { get; }
+
     public MainViewModel(
         IAudioPlayerService audioPlayerService,
         IBpmDetectorService bpmDetectorService,
@@ -137,10 +136,12 @@ public class MainViewModel : ViewModelBase
         _loudnessAnalyzerService = loudnessAnalyzerService;
         _audioAnalysisPipeline = audioAnalysisPipeline;
         _toneGeneratorService = toneGeneratorService;
-        _toneGenerator = toneGeneratorService;
         _dependencyService = dependencyService;
         _updateService = updateService;
         _metadataWriter = new MetadataWriter();
+
+        var version = Assembly.GetExecutingAssembly().GetName().Version;
+        AppVersion = version != null ? $"v{version.Major}.{version.Minor}.{version.Build}" : "v1.2.0";
 
         _bpmTimer = new System.Windows.Threading.DispatcherTimer();
         _bpmTimer.Tick += (s, e) => _toneGeneratorService.Trigger();
@@ -199,6 +200,22 @@ public class MainViewModel : ViewModelBase
     {
         get => _isFileSelected;
         set => SetProperty(ref _isFileSelected, value);
+    }
+
+    public bool IsRelativeModeActive
+    {
+        get => _showRelativeKey;
+        set
+        {
+            if (_showRelativeKey != value)
+            {
+                _showRelativeKey = value;
+                OnPropertyChanged(nameof(IsRelativeModeActive));
+                OnPropertyChanged(nameof(KeyDisplayText));
+                OnPropertyChanged(nameof(CurrentTonicIndex));
+                OnPropertyChanged(nameof(ScaleNotes));
+            }
+        }
     }
 
     public string PositionText
@@ -468,14 +485,32 @@ public class MainViewModel : ViewModelBase
         if (_keyIndex < 0 || string.IsNullOrEmpty(_modeText))
             return notes;
 
+        // Determine current mode and root index (accounting for relative key)
+        string currentMode = _modeText;
+        int currentRoot = _keyIndex;
+
+        if (_showRelativeKey)
+        {
+            if (_modeText == "Major")
+            {
+                currentMode = "Minor";
+                currentRoot = (_keyIndex + 9) % 12;
+            }
+            else
+            {
+                currentMode = "Major";
+                currentRoot = (_keyIndex + 3) % 12;
+            }
+        }
+
         // Scale patterns (semitones from root)
-        int[] pattern = _modeText == "Major" 
+        int[] pattern = currentMode == "Major" 
             ? new[] { 0, 2, 4, 5, 7, 9, 11 } 
             : new[] { 0, 2, 3, 5, 7, 8, 10 };
 
         foreach (int interval in pattern)
         {
-            notes[(_keyIndex + interval) % 12] = true;
+            notes[(currentRoot + interval) % 12] = true;
         }
 
         return notes;
@@ -520,23 +555,27 @@ public class MainViewModel : ViewModelBase
         if (_modeText == "Major")
         {
             relativeIndex = (_keyIndex - 3 + 12) % 12;
-            relativeMode = "m";
+            relativeMode = "Minor";
         }
         else
         {
             relativeIndex = (_keyIndex + 3) % 12;
-            relativeMode = "M";
+            relativeMode = "Major";
         }
 
-        return $"{NoteNames[relativeIndex]}{relativeMode}";
+        return $"{NoteNames[relativeIndex]} {relativeMode}";
     }
 
     public void ToggleKeyDisplay()
     {
         if (string.IsNullOrEmpty(_keyText) || _keyText == "--") return;
-        _showRelativeKey = !_showRelativeKey;
-        OnPropertyChanged(nameof(KeyDisplayText));
-        OnPropertyChanged(nameof(CurrentTonicIndex));
+        
+        IsRelativeModeActive = !IsRelativeModeActive;
+
+        if (IsPlayingScale)
+        {
+            StartScalePlayback(); // Restart to follow new tonic/scale
+        }
     }
 
     public void SwapKeyValues()
@@ -653,7 +692,10 @@ public class MainViewModel : ViewModelBase
             return;
         }
 
-        _toneGeneratorService.StartScalePlayback(_displayBpm, ScaleNotes);
+        // Apply ducking (-6dB ≈ 0.5 volume)
+        _audioPlayerService.SetVolume(0.5f);
+
+        _toneGeneratorService.StartScalePlayback(_displayBpm, ScaleNotes, CurrentTonicIndex);
         
         // Interval = 60,000 / BPM (ms per beat)
         double intervalMs = 60000.0 / _displayBpm;
@@ -665,6 +707,9 @@ public class MainViewModel : ViewModelBase
     {
         _bpmTimer.Stop();
         _toneGeneratorService.StopScalePlayback();
+
+        // Restore volume
+        _audioPlayerService.SetVolume(1.0f);
     }
 
     public RelayCommand ToggleKeyboardCommand => _toggleKeyboardCommand ??= new RelayCommand(() => IsKeyboardOverlayVisible = !IsKeyboardOverlayVisible);
@@ -720,17 +765,20 @@ public class MainViewModel : ViewModelBase
     }
     public RelayCommand PlayCommand
     {
-        get => _playCommand ??= new RelayCommand(ExecutePlay, () => ArePlaybackControlsEnabled);
+        get => _playCommand ??= new RelayCommand(ExecutePlay, 
+            () => ArePlaybackControlsEnabled && CurrentPlaybackState != NAudio.Wave.PlaybackState.Playing);
         private set => _playCommand = value;
     }
     public RelayCommand PauseCommand
     {
-        get => _pauseCommand ??= new RelayCommand(ExecutePause, () => ArePlaybackControlsEnabled);
+        get => _pauseCommand ??= new RelayCommand(ExecutePause, 
+            () => ArePlaybackControlsEnabled && CurrentPlaybackState == NAudio.Wave.PlaybackState.Playing);
         private set => _pauseCommand = value;
     }
     public RelayCommand StopCommand
     {
-        get => _stopCommand ??= new RelayCommand(ExecuteStop, () => ArePlaybackControlsEnabled);
+        get => _stopCommand ??= new RelayCommand(ExecuteStop, 
+            () => ArePlaybackControlsEnabled && CurrentPlaybackState != NAudio.Wave.PlaybackState.Stopped);
         private set => _stopCommand = value;
     }
     public RelayCommand AnalyzeCommand 
@@ -772,7 +820,45 @@ public class MainViewModel : ViewModelBase
 
     public RelayCommand SwapBpmCommand => _swapBpmCommand ??= new RelayCommand(SwapBpmValues, () => CanSwapBpm);
 
-    public bool IsAnalyzingInProgress => _isAnalyzingInProgress;
+    public bool IsAnalyzingInProgress
+    {
+        get => _isAnalyzingInProgress;
+        private set
+        {
+            if (SetProperty(ref _isAnalyzingInProgress, value))
+            {
+                OnPropertyChanged(nameof(IsAnalyzingInProgress));
+                UpdateTransportCommands();
+            }
+        }
+    }
+
+    private NAudio.Wave.PlaybackState _currentPlaybackState = NAudio.Wave.PlaybackState.Stopped;
+    public NAudio.Wave.PlaybackState CurrentPlaybackState
+    {
+        get => _currentPlaybackState;
+        private set
+        {
+            if (SetProperty(ref _currentPlaybackState, value))
+            {
+                UpdateTransportCommands();
+            }
+        }
+    }
+
+    private void UpdateTransportCommands()
+    {
+        PlayCommand.RaiseCanExecuteChanged();
+        PauseCommand.RaiseCanExecuteChanged();
+        StopCommand.RaiseCanExecuteChanged();
+    }
+
+    private string _analysisStageText = "";
+    public string AnalysisStageText
+    {
+        get => _analysisStageText;
+        set => SetProperty(ref _analysisStageText, value);
+    }
 
     public bool IsSaveMetadataEnabled
     {
@@ -907,9 +993,6 @@ public class MainViewModel : ViewModelBase
             _bpmAnalysisResult = null;
             _originalAlternativeBpm = 0;
             _hasSwappedBpm = false;
-            _bpmAdjusted = false;
-            _bpmModifierText = "";
-            _bpmCycleState = 0;
             _keyIndex = -1;
             _showRelativeKey = false;
             OnPropertyChanged(nameof(BpmDisplayText));
@@ -943,8 +1026,9 @@ public class MainViewModel : ViewModelBase
     private void ExecuteStop()
     {
         _audioPlayerService.Stop();
-        StatusText = "Detenido.";
+        WaveformPosition = 0;
         UpdatePositionDisplay();
+        StatusText = "Detenido.";
     }
 
     private async Task ExecuteAnalyzeAsync()
@@ -960,7 +1044,8 @@ public class MainViewModel : ViewModelBase
             LoggerService.Log($"Warning: AudioPlayer Stop failed before analysis - {ex.Message}");
         }
 
-        _isAnalyzingInProgress = true;
+        IsAnalyzingInProgress = true;
+        AnalysisStageText = ">_ INITIALIZING AUDIO ENGINE...";
         IsAnalyzeButtonEnabled = false;
         IsAnalysisProgressVisible = true;
         AnalysisProgress = 0;
@@ -973,22 +1058,24 @@ public class MainViewModel : ViewModelBase
         try
         {
             AnalysisProgress = 10;
+            AnalysisStageText = ">_ DECODING AUDIO STREAM...";
             StatusText = "Analizando audio...";
             
-            var progressReporter = new Progress<int>(p => AnalysisProgress = p);
+            var progressReporter = new Progress<int>(p =>
+            {
+                // Clamp progress to 99 to leave room for the final 100% completion step
+                AnalysisProgress = Math.Min(p, 99);
+                if (p < 30) AnalysisStageText = ">_ INITIALIZING AUDIO PIPELINE...";
+                else if (p < 99) AnalysisStageText = ">_ RUNNING PARALLEL ANALYSIS (BPM, KEY, LUFS, WAVEFORM)...";
+                else AnalysisStageText = ">_ FINALIZING RESULTS...";
+            });
             
-            // Perform full rhythmic analysis
-            _bpmAnalysisResult = await _bpmDetectorService.DetectFullAnalysisAsync(FilePath, progressReporter, SelectedBpmProfile);
-            
+            // Perform full pipeline analysis (now includes consolidated BPM)
             var report = await _audioAnalysisPipeline.AnalyzeAudioAsync(FilePath, progressReporter, SelectedBpmProfile);
+            _bpmAnalysisResult = report.BpmResult;
             
             if (_bpmAnalysisResult != null)
             {
-                // Override pipeline BPM with Essentia results if available
-                report.Bpm = _bpmAnalysisResult.PrimaryBpm;
-                report.AlternativeBpm = _bpmAnalysisResult.AlternateBpms.FirstOrDefault();
-                if (report.AlternativeBpm == 0) report.AlternativeBpm = report.Bpm * 2;
-                
                 LoggerService.Log($"ExecuteAnalyze - Essentia BPM: {report.Bpm} (Reinterpreted: {_bpmAnalysisResult.IsReinterpreted})");
             }
 
@@ -1000,10 +1087,7 @@ public class MainViewModel : ViewModelBase
                 _originalBpm = report.Bpm;
                 _displayBpm = report.Bpm;
                 _originalAlternativeBpm = report.AlternativeBpm;
-                _bpmAdjusted = false;
-                _bpmModifierText = "";
                 _hasSwappedBpm = false;
-                _bpmCycleState = 0;
                 OnPropertyChanged(nameof(BpmDisplayText));
                 OnPropertyChanged(nameof(IsBpmModified));
                 OnPropertyChanged(nameof(CanSwapBpm));
@@ -1036,6 +1120,7 @@ public class MainViewModel : ViewModelBase
             WaveformData = report.Waveform;
 
             AnalysisProgress = 100;
+            AnalysisStageText = ">_ ANALYSIS COMPLETE";
             HasAnalysisResults = true;
             HeadroomText = $"{report.Loudness.TruePeak:F1} dB";
             StatusText = "¡Análisis completo!";
@@ -1055,7 +1140,8 @@ public class MainViewModel : ViewModelBase
                              KeyText != "..." && KeyText != "--";
             IsSaveMetadataEnabled = hasResults && !string.IsNullOrEmpty(FilePath);
 
-            _isAnalyzingInProgress = false;
+            IsAnalyzingInProgress = false;
+            AnalysisStageText = "";
 
             if (!string.IsNullOrEmpty(_pendingFilePath))
             {
@@ -1112,13 +1198,18 @@ public class MainViewModel : ViewModelBase
     {
         System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
         {
+            CurrentPlaybackState = state;
             switch (state)
             {
                 case NAudio.Wave.PlaybackState.Playing:
                     StatusText = "Reproduciendo...";
                     break;
                 case NAudio.Wave.PlaybackState.Stopped:
+                    StatusText = "Detenido.";
+                    UpdatePositionDisplay();
+                    break;
                 case NAudio.Wave.PlaybackState.Paused:
+                    StatusText = "En pausa.";
                     UpdatePositionDisplay();
                     break;
             }

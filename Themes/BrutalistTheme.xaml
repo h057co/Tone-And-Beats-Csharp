@@ -18,6 +18,7 @@
     <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="{StaticResource PrimaryAccentColor}"/>
     <SolidColorBrush x:Key="ButtonForegroundBrush" Color="#000000"/>
     <SolidColorBrush x:Key="ButtonHoverBrush" Color="{StaticResource PrimaryAccentColor}"/>
+    <SolidColorBrush x:Key="ButtonDisabledBrush" Color="#333333"/>
     
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="#AAAAAA"/>
     <SolidColorBrush x:Key="KeyForegroundBrush" Color="{StaticResource SecondaryAccentColor}"/>

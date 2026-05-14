@@ -9,7 +9,7 @@ public interface IToneGeneratorService : IDisposable
     void SetVolume(float volume);
     
     // New scale playback support
-    void StartScalePlayback(double bpm, bool[] scaleNotes);
+    void StartScalePlayback(double bpm, bool[] scaleNotes, int tonicIndex);
     void UpdateBpm(double bpm);
     void StopScalePlayback();
 }

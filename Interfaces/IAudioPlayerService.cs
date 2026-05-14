@@ -16,6 +16,7 @@ public interface IAudioPlayerService : IDisposable
     void Stop();
     void UnloadFile();
     void Seek(TimeSpan position);
+    void SetVolume(float volume);
     float GetSampleRate();
     int GetChannelCount();
     AudioFileInfo? GetAudioFileInfo();
