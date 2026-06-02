@@ -46,11 +46,13 @@ public class PlaybackController : IPlaybackController
     public void LoadFile(string filePath)
     {
         _audioPlayerService.LoadFile(filePath);
+        PositionTextChanged?.Invoke(FormatTime(TimeSpan.Zero), FormatTime(_audioPlayerService.Duration));
     }
 
     public void UnloadFile()
     {
         _audioPlayerService.UnloadFile();
+        PositionTextChanged?.Invoke("00:00", "00:00");
     }
 
     public AudioFileInfo? GetAudioFileInfo()
@@ -113,7 +115,7 @@ public class PlaybackController : IPlaybackController
                     break;
                 case NAudio.Wave.PlaybackState.Stopped:
                     StatusChanged?.Invoke("Detenido.");
-                    UpdatePositionDisplay();
+                    Seek(0);
                     break;
                 case NAudio.Wave.PlaybackState.Paused:
                     StatusChanged?.Invoke("En pausa.");

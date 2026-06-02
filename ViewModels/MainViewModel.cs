@@ -149,6 +149,7 @@ public class MainViewModel : ViewModelBase
         {
             PositionText = pos;
             DurationText = dur;
+            WaveformPosition = _playbackController.Position.TotalSeconds;
         };
     }
 
@@ -906,7 +907,8 @@ public class MainViewModel : ViewModelBase
             OnPropertyChanged(nameof(CanSwapBpm));
             OnPropertyChanged(nameof(KeyDisplayText));
 
-            UpdatePositionDisplay();
+            WaveformPosition = 0;
+            CurrentPlaybackState = NAudio.Wave.PlaybackState.Stopped;
             StatusText = "Archivo cargado. Listo para analizar.";
             StatusState = "Normal";
         }

@@ -148,6 +148,13 @@ public partial class MainWindow : Window
                     WaveformDisplay.SetWaveformData(ViewModel.WaveformData);
                 });
             }
+            else
+            {
+                Dispatcher.BeginInvoke(() =>
+                {
+                    WaveformDisplay.Clear();
+                });
+            }
         }
         
         if (e.PropertyName == nameof(MainViewModel.WaveformPosition))
