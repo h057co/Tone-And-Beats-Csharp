@@ -1212,7 +1212,7 @@
                 </Border>
                 
                 <!-- Center content -->
-                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="280">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="340">
                     
                     <!-- Terminal-style header -->
                     <TextBlock Text="TONE&amp;BEATS.EXE" 
@@ -1253,22 +1253,24 @@
                         </Border.Style>
                     </Border>
                     
-                    <!-- Stage text -->
+                    <!-- Stage text (Wraps and centers dynamically to avoid overflow) -->
                     <TextBlock Text="{Binding AnalysisStageText}" 
                                FontSize="11" FontWeight="SemiBold"
                                Foreground="{DynamicResource AccentBrush}"
-                               HorizontalAlignment="Center" Margin="0,0,0,15"
-                               FontFamily="{DynamicResource TerminalFont}"/>
+                               HorizontalAlignment="Center" Margin="10,0,10,15"
+                               FontFamily="{DynamicResource TerminalFont}"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"/>
                     
                     <!-- Progress bar container -->
-                    <Border CornerRadius="2" Height="4" 
+                    <Border x:Name="ProgressBarTrack" CornerRadius="2" Height="4" 
                             Background="#1AFFFFFF" Margin="20,0,20,8">
                         <Border CornerRadius="2" HorizontalAlignment="Left"
                                 Background="{DynamicResource AccentBrush}">
                             <Border.Width>
                                 <MultiBinding Converter="{StaticResource ProgressWidthConverter}">
                                     <Binding Path="AnalysisProgress"/>
-                                    <Binding RelativeSource="{RelativeSource AncestorType=Border, AncestorLevel=2}" Path="ActualWidth"/>
+                                    <Binding ElementName="ProgressBarTrack" Path="ActualWidth"/>
                                 </MultiBinding>
                             </Border.Width>
                         </Border>
