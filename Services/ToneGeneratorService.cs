@@ -84,11 +84,6 @@ public class ToneGeneratorService : IToneGeneratorService
         Stop();
     }
 
-    public void Trigger()
-    {
-        // No longer needed — sequencing is now handled internally by ScaleSequencerProvider
-    }
-
     public void Stop()
     {
         _waveOut?.Stop();

@@ -14,18 +14,15 @@ namespace AudioAnalyzer.ViewModels;
 
 public class MainViewModel : ViewModelBase
 {
-    private readonly IAudioPlayerService _audioPlayerService;
-    private readonly IBpmDetectorService _bpmDetectorService;
-    private readonly IKeyDetector _keyDetectorService;
-    private readonly IWaveformAnalyzerService _waveformAnalyzerService;
+    private readonly IPlaybackController _playbackController;
     private readonly IFilePickerService _filePickerService;
     private readonly IMessageBoxService _messageBoxService;
-    private readonly ILoudnessAnalyzerService _loudnessAnalyzerService;
-    private readonly IAudioAnalysisPipeline _audioAnalysisPipeline;
+    private readonly IAnalysisOrchestrator _analysisOrchestrator;
     private readonly IToneGeneratorService _toneGeneratorService;
     private readonly IUpdateService _updateService;
+    private readonly IKeyDisplayService _keyDisplayService;
+    private readonly ILoggerService _logger;
     private readonly MetadataWriter _metadataWriter;
-    private readonly System.Windows.Threading.DispatcherTimer _bpmTimer;
 
     private string _fileName = "No file selected";
     private bool _isFileSelected = false;
@@ -53,7 +50,7 @@ public class MainViewModel : ViewModelBase
     private RelayCommand? _pauseCommand;
     private RelayCommand? _stopCommand;
     private RelayCommand? _saveMetadataCommand;
-    private RelayCommand? _analyzeCommand;
+    private AsyncRelayCommand? _analyzeCommand;
     private RelayCommand? _cycleThemeCommand;
     private RelayCommand? _openUrlCommand;
     private double _originalBpm;
@@ -115,38 +112,31 @@ public class MainViewModel : ViewModelBase
     public string AppVersion { get; }
 
     public MainViewModel(
-        IAudioPlayerService audioPlayerService,
-        IBpmDetectorService bpmDetectorService,
-        IKeyDetector keyDetectorService,
-        IWaveformAnalyzerService waveformAnalyzerService,
+        IPlaybackController playbackController,
         IFilePickerService filePickerService,
         IMessageBoxService messageBoxService,
-        ILoudnessAnalyzerService loudnessAnalyzerService,
-        IAudioAnalysisPipeline audioAnalysisPipeline,
+        IAnalysisOrchestrator analysisOrchestrator,
         IToneGeneratorService toneGeneratorService,
         IDependencyService dependencyService,
-        IUpdateService updateService)
+        IUpdateService updateService,
+        IKeyDisplayService keyDisplayService,
+        ILoggerService logger)
     {
-        _audioPlayerService = audioPlayerService;
-        _bpmDetectorService = bpmDetectorService;
-        _keyDetectorService = keyDetectorService;
-        _waveformAnalyzerService = waveformAnalyzerService;
+        _playbackController = playbackController;
         _filePickerService = filePickerService;
         _messageBoxService = messageBoxService;
-        _loudnessAnalyzerService = loudnessAnalyzerService;
-        _audioAnalysisPipeline = audioAnalysisPipeline;
+        _analysisOrchestrator = analysisOrchestrator;
         _toneGeneratorService = toneGeneratorService;
         _dependencyService = dependencyService;
         _updateService = updateService;
+        _keyDisplayService = keyDisplayService;
+        _logger = logger;
         _metadataWriter = new MetadataWriter();
 
         var version = Assembly.GetExecutingAssembly().GetName().Version;
         AppVersion = version != null ? $"v{version.Major}.{version.Minor}.{version.Build}" : "v1.2.0";
 
-        _bpmTimer = new System.Windows.Threading.DispatcherTimer();
-        _bpmTimer.Tick += (s, e) => _toneGeneratorService.Trigger();
-
-        ResolveDependenciesCommand = new RelayCommand(async () => await ResolveDependenciesAsync());
+        ResolveDependenciesCommand = new AsyncRelayCommand(async () => await ResolveDependenciesAsync());
 
         // Check dependencies on startup
         if (!_dependencyService.IsFFmpegAvailable())
@@ -154,10 +144,15 @@ public class MainViewModel : ViewModelBase
             IsDependencyMissing = true;
         }
 
-        _audioPlayerService.PlaybackStateChanged += OnPlaybackStateChanged;
+        _playbackController.StatusChanged += status => StatusText = status;
+        _playbackController.PositionTextChanged += (pos, dur) => 
+        {
+            PositionText = pos;
+            DurationText = dur;
+        };
     }
 
-    public RelayCommand ResolveDependenciesCommand { get; }
+    public AsyncRelayCommand ResolveDependenciesCommand { get; }
     public IUpdateService UpdateService => _updateService;
 
     private async Task ResolveDependenciesAsync()
@@ -177,7 +172,7 @@ public class MainViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            LoggerService.Log("MainViewModel.ResolveDependenciesAsync - Error: " + ex.Message);
+            _logger.Log("MainViewModel.ResolveDependenciesAsync - Error: " + ex.Message);
             _messageBoxService.ShowError("Failed to download FFmpeg: " + ex.Message, "Error");
         }
         finally
@@ -477,94 +472,11 @@ public class MainViewModel : ViewModelBase
 
     private static readonly string[] NoteNames = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
 
-    public bool[] ScaleNotes => CalculateScaleNotes();
+    public bool[] ScaleNotes => _keyDisplayService.CalculateScaleNotes(_keyIndex, _modeText, _showRelativeKey);
 
-    private bool[] CalculateScaleNotes()
-    {
-        var notes = new bool[12];
-        if (_keyIndex < 0 || string.IsNullOrEmpty(_modeText))
-            return notes;
+    public int CurrentTonicIndex => _keyDisplayService.GetCurrentTonicIndex(_keyIndex, _modeText, _showRelativeKey);
 
-        // Determine current mode and root index (accounting for relative key)
-        string currentMode = _modeText;
-        int currentRoot = _keyIndex;
-
-        if (_showRelativeKey)
-        {
-            if (_modeText == "Major")
-            {
-                currentMode = "Minor";
-                currentRoot = (_keyIndex + 9) % 12;
-            }
-            else
-            {
-                currentMode = "Major";
-                currentRoot = (_keyIndex + 3) % 12;
-            }
-        }
-
-        // Scale patterns (semitones from root)
-        int[] pattern = currentMode == "Major" 
-            ? new[] { 0, 2, 4, 5, 7, 9, 11 } 
-            : new[] { 0, 2, 3, 5, 7, 8, 10 };
-
-        foreach (int interval in pattern)
-        {
-            notes[(currentRoot + interval) % 12] = true;
-        }
-
-        return notes;
-    }
-
-    public int CurrentTonicIndex
-    {
-        get
-        {
-            if (_keyIndex < 0) return -1;
-            if (!_showRelativeKey) return _keyIndex;
-
-            // Major -> Relative Minor (-3 semitones)
-            // Minor -> Relative Major (+3 semitones)
-            if (_modeText == "Major")
-                return (_keyIndex - 3 + 12) % 12;
-            else
-                return (_keyIndex + 3) % 12;
-        }
-    }
-
-    public string KeyDisplayText
-    {
-        get
-        {
-            if (string.IsNullOrEmpty(_keyText) || _keyText == "--")
-                return "--";
-            if (_showRelativeKey)
-                return CalculateRelativeKey();
-            return $"{_keyText} {_modeText}";
-        }
-    }
-
-    private string CalculateRelativeKey()
-    {
-        if (_keyIndex < 0 || string.IsNullOrEmpty(_modeText))
-            return "--";
-
-        int relativeIndex;
-        string relativeMode;
-
-        if (_modeText == "Major")
-        {
-            relativeIndex = (_keyIndex - 3 + 12) % 12;
-            relativeMode = "Minor";
-        }
-        else
-        {
-            relativeIndex = (_keyIndex + 3) % 12;
-            relativeMode = "Major";
-        }
-
-        return $"{NoteNames[relativeIndex]} {relativeMode}";
-    }
+    public string KeyDisplayText => _keyDisplayService.GetKeyDisplayText(_keyText, _modeText, _keyIndex, _showRelativeKey);
 
     public void ToggleKeyDisplay()
     {
@@ -693,23 +605,17 @@ public class MainViewModel : ViewModelBase
         }
 
         // Apply ducking (-6dB ≈ 0.5 volume)
-        _audioPlayerService.SetVolume(0.5f);
+        _playbackController.SetVolume(0.5f);
 
         _toneGeneratorService.StartScalePlayback(_displayBpm, ScaleNotes, CurrentTonicIndex);
-        
-        // Interval = 60,000 / BPM (ms per beat)
-        double intervalMs = 60000.0 / _displayBpm;
-        _bpmTimer.Interval = TimeSpan.FromMilliseconds(intervalMs);
-        _bpmTimer.Start();
     }
 
     private void StopScalePlayback()
     {
-        _bpmTimer.Stop();
         _toneGeneratorService.StopScalePlayback();
 
         // Restore volume
-        _audioPlayerService.SetVolume(1.0f);
+        _playbackController.SetVolume(1.0f);
     }
 
     public RelayCommand ToggleKeyboardCommand => _toggleKeyboardCommand ??= new RelayCommand(() => IsKeyboardOverlayVisible = !IsKeyboardOverlayVisible);
@@ -781,9 +687,9 @@ public class MainViewModel : ViewModelBase
             () => ArePlaybackControlsEnabled && CurrentPlaybackState != NAudio.Wave.PlaybackState.Stopped);
         private set => _stopCommand = value;
     }
-    public RelayCommand AnalyzeCommand 
+    public AsyncRelayCommand AnalyzeCommand 
     {
-        get => _analyzeCommand ??= new RelayCommand(
+        get => _analyzeCommand ??= new AsyncRelayCommand(
             async () => { if (!string.IsNullOrEmpty(FilePath)) await ExecuteAnalyzeAsync(); },
             () => !string.IsNullOrEmpty(FilePath) && !_isAnalyzingInProgress);
         private set => _analyzeCommand = value;
@@ -811,7 +717,7 @@ public class MainViewModel : ViewModelBase
                 }
                 catch (Exception ex)
                 {
-                    LoggerService.Log($"OpenUrlCommand failed: {ex.Message}");
+                    _logger.Log($"OpenUrlCommand failed: {ex.Message}");
                 }
             }
         });
@@ -912,20 +818,20 @@ public class MainViewModel : ViewModelBase
                 
                 try
                 {
-                    _audioPlayerService.Stop();
+                    _playbackController.Stop();
                 }
                 catch (Exception ex)
                 {
-                    LoggerService.Log($"Warning: AudioPlayer Stop failed during file queue - {ex.Message}");
+                    _logger.Log($"Warning: AudioPlayer Stop failed during file queue - {ex.Message}");
                 }
                 
                 try
                 {
-                    _audioPlayerService.UnloadFile();
+                    _playbackController.UnloadFile();
                 }
                 catch (Exception ex)
                 {
-                    LoggerService.Log($"Warning: AudioPlayer Unload failed during file queue - {ex.Message}");
+                    _logger.Log($"Warning: AudioPlayer Unload failed during file queue - {ex.Message}");
                 }
                 
                 FilePath = null;
@@ -938,7 +844,7 @@ public class MainViewModel : ViewModelBase
 
             FilePath = filePath;
             HasAnalysisResults = false;
-            _audioPlayerService.LoadFile(filePath);
+            _playbackController.LoadFile(filePath);
 
             FileName = Path.GetFileName(filePath);
             IsFileSelected = true;
@@ -946,12 +852,12 @@ public class MainViewModel : ViewModelBase
             ArePlaybackControlsEnabled = true;
             IsAnalyzeButtonEnabled = true;
 
-            var audioInfo = _audioPlayerService.GetAudioFileInfo();
-            LoggerService.Log($"LoadAudioFile() - audioInfo es null: {audioInfo == null}");
+            var audioInfo = _playbackController.GetAudioFileInfo();
+            _logger.Log($"LoadAudioFile() - audioInfo es null: {audioInfo == null}");
             
             if (audioInfo != null)
             {
-                LoggerService.Log($"LoadAudioFile() - Asignando: Type={audioInfo.FileType}, SR={audioInfo.SampleRate}, BD={audioInfo.BitDepth}, Ch={audioInfo.Channels}, BR={audioInfo.Bitrate}, BRM={audioInfo.BitrateMode}");
+                _logger.Log($"LoadAudioFile() - Asignando: Type={audioInfo.FileType}, SR={audioInfo.SampleRate}, BD={audioInfo.BitDepth}, Ch={audioInfo.Channels}, BR={audioInfo.Bitrate}, BRM={audioInfo.BitrateMode}");
 
                 _currentAudioInfo = audioInfo;
                 AudioFileType = audioInfo.FileType;
@@ -968,7 +874,7 @@ public class MainViewModel : ViewModelBase
             }
             else
             {
-                LoggerService.Log("LoadAudioFile() - audioInfo es null, asignando valores vacios");
+                _logger.Log("LoadAudioFile() - audioInfo es null, asignando valores vacios");
 
                 _currentAudioInfo = null;
                 AudioFileType = "";
@@ -1013,22 +919,21 @@ public class MainViewModel : ViewModelBase
 
     private void ExecutePlay()
     {
-        _audioPlayerService.Play();
-        StatusText = "Reproduciendo...";
+        _playbackController.Play();
+        CurrentPlaybackState = _playbackController.State;
     }
 
     private void ExecutePause()
     {
-        _audioPlayerService.Pause();
-        StatusText = "En pausa.";
+        _playbackController.Pause();
+        CurrentPlaybackState = _playbackController.State;
     }
 
     private void ExecuteStop()
     {
-        _audioPlayerService.Stop();
+        _playbackController.Stop();
+        CurrentPlaybackState = _playbackController.State;
         WaveformPosition = 0;
-        UpdatePositionDisplay();
-        StatusText = "Detenido.";
     }
 
     private async Task ExecuteAnalyzeAsync()
@@ -1037,11 +942,11 @@ public class MainViewModel : ViewModelBase
 
         try
         {
-            _audioPlayerService.Stop();
+            _playbackController.Stop();
         }
         catch (Exception ex)
         {
-            LoggerService.Log($"Warning: AudioPlayer Stop failed before analysis - {ex.Message}");
+            _logger.Log($"Warning: AudioPlayer Stop failed before analysis - {ex.Message}");
         }
 
         IsAnalyzingInProgress = true;
@@ -1061,22 +966,17 @@ public class MainViewModel : ViewModelBase
             AnalysisStageText = ">_ DECODING AUDIO STREAM...";
             StatusText = "Analizando audio...";
             
-            var progressReporter = new Progress<int>(p =>
+            // Perform full pipeline analysis via orchestrator
+            var report = await _analysisOrchestrator.RunAnalysisAsync(FilePath, SelectedBpmProfile, (p, stage) => 
             {
-                // Clamp progress to 99 to leave room for the final 100% completion step
-                AnalysisProgress = Math.Min(p, 99);
-                if (p < 30) AnalysisStageText = ">_ INITIALIZING AUDIO PIPELINE...";
-                else if (p < 99) AnalysisStageText = ">_ RUNNING PARALLEL ANALYSIS (BPM, KEY, LUFS, WAVEFORM)...";
-                else AnalysisStageText = ">_ FINALIZING RESULTS...";
+                AnalysisProgress = p;
+                AnalysisStageText = stage;
             });
-            
-            // Perform full pipeline analysis (now includes consolidated BPM)
-            var report = await _audioAnalysisPipeline.AnalyzeAudioAsync(FilePath, progressReporter, SelectedBpmProfile);
             _bpmAnalysisResult = report.BpmResult;
             
             if (_bpmAnalysisResult != null)
             {
-                LoggerService.Log($"ExecuteAnalyze - Essentia BPM: {report.Bpm} (Reinterpreted: {_bpmAnalysisResult.IsReinterpreted})");
+                _logger.Log($"ExecuteAnalyze - Essentia BPM: {report.Bpm} (Reinterpreted: {_bpmAnalysisResult.IsReinterpreted})");
             }
 
             BpmText = report.Bpm > 0 ? report.Bpm.ToString("F1") : "--";
@@ -1124,12 +1024,12 @@ public class MainViewModel : ViewModelBase
             HasAnalysisResults = true;
             HeadroomText = $"{report.Loudness.TruePeak:F1} dB";
             StatusText = "¡Análisis completo!";
-            LoggerService.Log("ExecuteAnalyze - Analisis completo");
+            _logger.Log("ExecuteAnalyze - Analisis completo");
         }
         catch (Exception ex)
         {
             StatusText = $"Error en análisis: {ex.Message}";
-            LoggerService.Log($"ExecuteAnalyze - Error: {ex.Message}");
+            _logger.Log($"ExecuteAnalyze - Error: {ex.Message}");
         }
         finally
         {
@@ -1176,15 +1076,15 @@ public class MainViewModel : ViewModelBase
         
         if (result)
         {
-            _audioPlayerService.Stop();
-            _audioPlayerService.UnloadFile();
+            _playbackController.Stop();
+            _playbackController.UnloadFile();
             
             var (success, msg) = _metadataWriter.WriteMetadata(FilePath, bpm, KeyText, ModeText);
             StatusText = msg;
             
             if (success && !string.IsNullOrEmpty(FilePath))
             {
-                _audioPlayerService.LoadFile(FilePath);
+                _playbackController.LoadFile(FilePath);
                 StatusText = msg + " (Archivo recargado)";
             }
         }
@@ -1218,35 +1118,28 @@ public class MainViewModel : ViewModelBase
 
     public void UpdatePosition()
     {
-        if (_audioPlayerService.State == NAudio.Wave.PlaybackState.Playing)
+        if (_playbackController.State == NAudio.Wave.PlaybackState.Playing)
         {
-            UpdatePositionDisplay();
-            WaveformPosition = _audioPlayerService.Position.TotalSeconds;
+            _playbackController.UpdatePosition();
+            WaveformPosition = _playbackController.Position.TotalSeconds;
         }
     }
 
-    public async void ExecuteAnalyzeCommand()
+    public void ExecuteAnalyzeCommand()
     {
-        try { await ExecuteAnalyzeAsync(); }
-        catch (Exception ex) { LoggerService.Log($"ExecuteAnalyzeCommand - Unhandled: {ex.Message}"); }
+        AnalyzeCommand.Execute(null);
     }
 
     private void UpdatePositionDisplay()
     {
-        PositionText = FormatTime(_audioPlayerService.Position);
-        DurationText = FormatTime(_audioPlayerService.Duration);
+        // This is handled by _playbackController.PositionTextChanged event now
     }
 
     public void SeekToPosition(double positionInSeconds)
     {
-        if (_audioPlayerService != null && _audioPlayerService.Duration.TotalSeconds > 0)
+        if (_playbackController != null && _playbackController.Duration.TotalSeconds > 0)
         {
-            // Clamp position to valid range
-            positionInSeconds = Math.Max(0, Math.Min(_audioPlayerService.Duration.TotalSeconds, positionInSeconds));
-            
-            var newPosition = TimeSpan.FromSeconds(positionInSeconds);
-            _audioPlayerService.Seek(newPosition);
-            PositionText = FormatTime(newPosition);
+            _playbackController.Seek(positionInSeconds);
             WaveformPosition = positionInSeconds;
         }
     }
@@ -1339,8 +1232,7 @@ public class MainViewModel : ViewModelBase
     public void Cleanup()
     {
         StopScalePlayback();
-        _audioPlayerService.PlaybackStateChanged -= OnPlaybackStateChanged;
-        _audioPlayerService.Dispose();
+        _playbackController.Cleanup();
         _toneGeneratorService.Dispose();
     }
 }

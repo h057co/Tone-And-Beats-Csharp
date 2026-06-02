@@ -16,6 +16,14 @@
 - **Audio Engines**: Essentia, FFmpeg
 - **Design**: Custom "Digital Brutalist" LookAndFeel
 - **Infrastructure**: GitHub Releases for updates
+- **Architecture**: Modular Dependency Injection (DI) with Service-Oriented logic extraction.
+
+## Core Services
+
+- **PlaybackController**: Encapsulated audio playback management.
+- **AnalysisOrchestrator**: Unified audio analysis pipeline.
+- **KeyDisplayService**: Musical theory and scale visualization engine.
+- **ILoggerService**: Injectable logging system for improved testability.
 
 ## Setup
 

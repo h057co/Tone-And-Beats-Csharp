@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Threading;
+using Microsoft.Extensions.DependencyInjection;
 using AudioAnalyzer.Infrastructure;
 using AudioAnalyzer.Interfaces;
 using AudioAnalyzer.Services;
@@ -10,6 +11,9 @@ namespace AudioAnalyzer;
 
 public partial class App : Application
 {
+    private readonly IServiceProvider _serviceProvider;
+    private DispatcherTimer? _positionTimer;
+
     public App()
     {
         AppDomain.CurrentDomain.AssemblyResolve += (sender, args) =>
@@ -20,54 +24,54 @@ public partial class App : Application
             }
             return null;
         };
+
+        var services = new ServiceCollection();
+        ConfigureServices(services);
+        _serviceProvider = services.BuildServiceProvider();
     }
 
-    private MainViewModel? _viewModel;
-    private DispatcherTimer? _positionTimer;
+    private void ConfigureServices(IServiceCollection services)
+    {
+        // Core services
+        services.AddSingleton<IDependencyService, DependencyService>();
+        services.AddSingleton<EssentiaWrapper>();
+        services.AddSingleton<ILoggerService, LoggerService>();
+        services.AddSingleton<IAudioPlayerService, AudioPlayerService>();
+        services.AddSingleton<IBpmDetectorService, BpmDetector>();
+        services.AddSingleton<IKeyDetector, KeyDetector>();
+        services.AddSingleton<IWaveformAnalyzerService, WaveformAnalyzer>();
+        services.AddSingleton<IFilePickerService, FilePickerService>();
+        services.AddSingleton<IMessageBoxService, MessageBoxService>();
+        services.AddSingleton<ILoudnessAnalyzerService, LoudnessAnalyzer>();
+        services.AddSingleton<IToneGeneratorService, ToneGeneratorService>();
+        services.AddSingleton<IUpdateService, UpdateService>();
+        services.AddSingleton<IAudioAnalysisPipeline, AudioAnalysisPipeline>();
+        services.AddSingleton<IKeyDisplayService, KeyDisplayService>();
+        services.AddSingleton<IAnalysisOrchestrator, AnalysisOrchestrator>();
+        services.AddSingleton<IPlaybackController, PlaybackController>();
+
+        // ViewModels
+        services.AddSingleton<MainViewModel>();
+
+        // Views
+        services.AddTransient<MainWindow>();
+    }
 
     private void Application_Startup(object sender, StartupEventArgs e)
     {
-        // Create services (in a real app, use a DI container like Microsoft.Extensions.DependencyInjection)
-        IDependencyService dependencyService = new DependencyService();
-        var essentiaWrapper = new EssentiaWrapper(dependencyService);
-        IAudioPlayerService audioPlayerService = new AudioPlayerService();
-        IBpmDetectorService bpmDetectorService = new BpmDetector(essentiaWrapper);
-        IKeyDetector keyDetectorService = new KeyDetector();
-        IWaveformAnalyzerService waveformAnalyzerService = new WaveformAnalyzer();
-        IFilePickerService filePickerService = new FilePickerService();
-        IMessageBoxService messageBoxService = new MessageBoxService();
-        ILoudnessAnalyzerService loudnessAnalyzerService = new LoudnessAnalyzer(dependencyService);
-        IToneGeneratorService toneGeneratorService = new ToneGeneratorService();
-        IUpdateService updateService = new UpdateService();
-        IAudioAnalysisPipeline analysisPipeline = new AudioAnalysisPipeline(
-            bpmDetectorService,
-            keyDetectorService,
-            waveformAnalyzerService,
-            loudnessAnalyzerService);
+        // Setup static logger instance for legacy access
+        LoggerService.Instance = _serviceProvider.GetRequiredService<ILoggerService>();
 
-        // Create ViewModel with injected dependencies (DIP)
-        _viewModel = new MainViewModel(
-            audioPlayerService,
-            bpmDetectorService,
-            keyDetectorService,
-            waveformAnalyzerService,
-            filePickerService,
-            messageBoxService,
-            loudnessAnalyzerService,
-            analysisPipeline,
-            toneGeneratorService,
-            dependencyService,
-            updateService);
+        // Resolve MainViewModel
+        var viewModel = _serviceProvider.GetRequiredService<MainViewModel>();
 
-        // Create and show MainWindow
-        var mainWindow = new MainWindow
-        {
-            DataContext = _viewModel
-        };
-
+        // Resolve and show MainWindow
+        var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
+        mainWindow.DataContext = viewModel;
         mainWindow.Show();
 
         // Perform background update check
+        var updateService = _serviceProvider.GetRequiredService<IUpdateService>();
         Task.Run(async () =>
         {
             var update = await updateService.CheckForUpdatesAsync();
@@ -82,26 +86,30 @@ public partial class App : Application
         ThemeManager.Initialize();
 
         // Setup position timer for playback sync
-        SetupPositionTimer();
+        SetupPositionTimer(viewModel);
         _positionTimer?.Start();
     }
 
-    private void SetupPositionTimer()
+    private void SetupPositionTimer(MainViewModel viewModel)
     {
         _positionTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(200)
         };
-        _positionTimer.Tick += (s, e) =>
+        _positionTimer.Tick += (s, ev) =>
         {
-            _viewModel?.UpdatePosition();
+            viewModel.UpdatePosition();
         };
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
         _positionTimer?.Stop();
-        _viewModel?.Cleanup();
+        
+        // Ensure MainViewModel is cleaned up
+        var viewModel = _serviceProvider.GetService<MainViewModel>();
+        viewModel?.Cleanup();
+        
         base.OnExit(e);
     }
 }

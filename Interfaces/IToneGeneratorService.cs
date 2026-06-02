@@ -3,7 +3,6 @@ namespace AudioAnalyzer.Interfaces;
 public interface IToneGeneratorService : IDisposable
 {
     void Start(double frequency);
-    void Trigger();
     void Stop();
     void SetFrequency(double frequency);
     void SetVolume(float volume);
