@@ -198,6 +198,12 @@ public partial class MainWindow : Window
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
+        // Ocultar el estado del sistema en anchos de ventana estrechos para dar espacio al título/versión
+        if (SystemStatusBorder != null)
+        {
+            SystemStatusBorder.Visibility = e.NewSize.Width < 530 ? Visibility.Collapsed : Visibility.Visible;
+        }
+
         if (!_isUpdatingScale)
         {
             Dispatcher.BeginInvoke(UpdateContentScale, System.Windows.Threading.DispatcherPriority.Loaded);

@@ -294,22 +294,28 @@
                     </Grid.ColumnDefinitions>
                     
                     <!-- Title -->
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
-                        <TextBlock Text="TONE&amp;BEATS.EXE" 
+                    <Grid Grid.Column="0" VerticalAlignment="Center" Margin="10,0,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="TONE&amp;BEATS.EXE" 
                                    Foreground="White" 
                                    FontSize="16"
                                    FontWeight="ExtraBold"
-                                   FontFamily="{DynamicResource TerminalFont}"/>
-                        <TextBlock Text="{Binding AppVersion, StringFormat=' [ AUDIO ANALYZER {0} ]'}" 
+                                   FontFamily="{DynamicResource TerminalFont}"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Grid.Column="1" Text="{Binding AppVersion, StringFormat=' [ AUDIO ANALYZER {0} ]'}" 
                                    Foreground="{DynamicResource TextSecondaryBrush}" 
                                    VerticalAlignment="Bottom"
                                    Margin="5,0,0,2"
                                    FontSize="10"
-                                   FontFamily="{DynamicResource TerminalFont}"/>
-                    </StackPanel>
+                                   FontFamily="{DynamicResource TerminalFont}"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </Grid>
                     
                     <!-- System Status (Simulated CLI) -->
-                    <Border Grid.Column="1" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" 
+                    <Border x:Name="SystemStatusBorder" Grid.Column="1" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" 
                             Margin="0,2,15,2" Padding="8,2" VerticalAlignment="Center" HorizontalAlignment="Right">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="SYSTEM STATUS" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,5,0" VerticalAlignment="Center"/>

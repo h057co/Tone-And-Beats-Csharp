@@ -73,14 +73,19 @@
 
             <!-- Custom Title Bar -->
             <Grid Grid.Row="0" Height="30" Background="{DynamicResource ResultBoxBackgroundBrush}" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
-                <TextBlock Text="ABOUT / TONE &amp; BEATS" 
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="ABOUT / TONE &amp; BEATS" 
                            VerticalAlignment="Center" 
                            Margin="15,0,0,0" 
                            FontSize="10" 
                            FontWeight="Bold" 
-                           Foreground="{DynamicResource AccentBrush}"/>
+                           Foreground="{DynamicResource AccentBrush}"
+                           TextTrimming="CharacterEllipsis"/>
                 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button Content="[ X ]" 
                             Click="CloseButton_Click" 
                             Background="Transparent" 
