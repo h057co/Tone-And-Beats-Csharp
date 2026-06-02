@@ -53,9 +53,11 @@
     <ItemGroup>
      <Content Include="dependencies\ffmpeg\ffmpeg.exe" CopyToOutputDirectory="PreserveNewest">
        <Link>ffmpeg\ffmpeg.exe</Link>
+       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
      </Content>
      <Content Include="dependencies\ffmpeg\ffprobe.exe" CopyToOutputDirectory="PreserveNewest">
        <Link>ffmpeg\ffprobe.exe</Link>
+       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
      </Content>
     </ItemGroup>
 
@@ -63,6 +65,7 @@
     <ItemGroup>
       <Content Include="dependencies\Essentia\essentia_streaming_extractor_music.exe" CopyToOutputDirectory="PreserveNewest">
         <Link>essentia\streaming_extractor_music.exe</Link>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
       </Content>
     </ItemGroup>
  

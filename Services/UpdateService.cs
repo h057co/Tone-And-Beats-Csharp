@@ -126,7 +126,8 @@ Start-Process -FilePath $dest
             {
                 FileName = "powershell.exe",
                 Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\"",
-                UseShellExecute = false,
+                UseShellExecute = true,
+                Verb = "runas",
                 CreateNoWindow = true
             });
 
