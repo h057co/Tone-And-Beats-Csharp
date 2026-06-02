@@ -916,9 +916,9 @@
                     <Border Grid.Row="1" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Margin="{DynamicResource SectionMargin}" Padding="0,0,0,10">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock Text="DETECTED KEY: " FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" FontFamily="{DynamicResource TerminalFont}"/>
-                            <Button Command="{Binding ToggleKeyDisplayCommand}" Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand">
+                            <Button Command="{Binding SwapKeyCommand}" Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand">
                                 <TextBlock Text="{Binding KeyDisplayText}" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource KeyForegroundBrush}" FontFamily="{DynamicResource TerminalFont}"
-                                           ToolTip="Click to toggle relative key"/>
+                                           ToolTip="Click to swap with alternative key"/>
                             </Button>
                             <Button Command="{Binding ToggleKeyDisplayCommand}" Background="Transparent" BorderThickness="0" Padding="4,0" Margin="10,0,0,0" Cursor="Hand" ToolTip="Toggle relative major/minor">
                                 <Button.Style>

@@ -4,8 +4,13 @@ namespace AudioAnalyzer.Services;
 
 public class KeyDetector : IKeyDetector
 {
-    private static readonly double[] MajorProfile = { 6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88 };
-    private static readonly double[] MinorProfile = { 6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17 };
+    // Krumhansl-Schmuckler Profiles (best for classical & acoustic)
+    private static readonly double[] MajorProfileKS = { 6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88 };
+    private static readonly double[] MinorProfileKS = { 6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17 };
+    
+    // Temperley Profiles (best for pop, rock & electronic)
+    private static readonly double[] MajorProfileTemperley = { 5.0, 2.0, 3.5, 2.0, 4.5, 4.0, 2.0, 4.5, 2.0, 3.5, 1.5, 4.0 };
+    private static readonly double[] MinorProfileTemperley = { 5.0, 2.0, 3.5, 4.5, 2.0, 4.0, 2.0, 4.5, 3.5, 2.0, 1.5, 4.0 };
 
     private static readonly string[] NoteNames = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
 
@@ -36,28 +41,61 @@ public class KeyDetector : IKeyDetector
             if (monoSamples.Length < sampleRate)
                 return new KeyDetectionResult("Unknown", 0, 0);
 
-            // Limit to MaxAnalysisSeconds from center of audio for key detection
-            int maxSamples = MaxAnalysisSeconds * sampleRate;
-            float[] analysisData;
-            if (monoSamples.Length > maxSamples)
+            // Limit to MaxAnalysisSeconds from center of audio for tuning offset estimation
+            int tuningSamples = MaxAnalysisSeconds * sampleRate;
+            float[] tuningData;
+            if (monoSamples.Length > tuningSamples)
             {
-                int startOffset = (monoSamples.Length - maxSamples) / 2;
-                analysisData = monoSamples.AsSpan(startOffset, maxSamples).ToArray();
-                LoggerService.Log($"KeyDetector.DetectKeyFromSamples - Trimmed {monoSamples.Length} -> {maxSamples} samples (center segment)");
+                int startOffset = (monoSamples.Length - tuningSamples) / 2;
+                tuningData = monoSamples.AsSpan(startOffset, tuningSamples).ToArray();
             }
             else
             {
-                analysisData = monoSamples;
+                tuningData = monoSamples;
             }
 
-            var tuningOffset = DetectTuningOffset(analysisData, sampleRate);
+            var tuningOffset = DetectTuningOffset(tuningData, sampleRate);
             LoggerService.Log($"KeyDetector.DetectKeyFromSamples - Detected tuning offset: {tuningOffset * 100:F1} cents");
 
             progress?.Report(30);
 
-            var pcp = ComputePitchClassProfile(analysisData, sampleRate, tuningOffset);
-            
-            progress?.Report(60);
+            var pcp = new double[12];
+            int segmentLength = 6 * sampleRate;
+
+            // If audio is long enough, perform Multi-Segment Analysis (5 distributed segments of 6s)
+            // to avoid intro/outro noise and capture global harmonic structures.
+            if (monoSamples.Length > segmentLength * 2)
+            {
+                double[] ratios = { 0.20, 0.35, 0.50, 0.65, 0.80 };
+                for (int s = 0; s < ratios.Length; s++)
+                {
+                    double ratio = ratios[s];
+                    int centerOffset = (int)(monoSamples.Length * ratio);
+                    int startOffset = centerOffset - (segmentLength / 2);
+                    startOffset = Math.Max(0, Math.Min(startOffset, monoSamples.Length - segmentLength));
+                    
+                    var segmentSamples = monoSamples.AsSpan(startOffset, segmentLength).ToArray();
+                    var segmentPcp = ComputePitchClassProfile(segmentSamples, sampleRate, tuningOffset);
+                    
+                    for (int i = 0; i < 12; i++)
+                    {
+                        pcp[i] += segmentPcp[i];
+                    }
+                    progress?.Report(30 + (s + 1) * 10);
+                }
+
+                // Normalize combined PCP
+                double total = pcp.Sum();
+                if (total > 0)
+                {
+                    for (int i = 0; i < 12; i++) pcp[i] /= total;
+                }
+            }
+            else
+            {
+                pcp = ComputePitchClassProfile(monoSamples, sampleRate, tuningOffset);
+                progress?.Report(80);
+            }
 
             var (best, alternative) = FindBestKeys(pcp);
             
@@ -113,17 +151,11 @@ public class KeyDetector : IKeyDetector
                 // Weight by magnitude
                 double weight = magnitudes[bin];
                 
-                // --- BASS ATTENUATION ---
-                // Reduce the impact of sub-bass and low frequencies (<250Hz) 
-                // so that dissonant kicks/808s don't skew the overall melodic key detection.
-                if (freq < 120.0)
-                {
-                    weight *= 0.15; // 85% attenuation for sub-bass
-                }
-                else if (freq < 250.0)
-                {
-                    weight *= 0.5; // 50% attenuation for low-mids
-                }
+                // --- SMOOTH BASS ROLL-OFF ---
+                // Continuous high-pass filter using a sigmoidal attenuation curve centered at 180Hz.
+                // Attenuates sub-bass (bombs/kicks) while keeping fundamental musical notes.
+                double rollOff = 1.0 / (1.0 + Math.Exp(-(freq - 180.0) / 30.0));
+                weight *= rollOff;
                 
                 // Soft assignment (Gaussian-like) to neighboring bins
                 double dist = pitch - pitchClass;
@@ -133,6 +165,26 @@ public class KeyDetector : IKeyDetector
                 double coreContribution = weight * Math.Exp(-0.5 * Math.Pow(dist / 0.1, 2));
                 pcp[pitchClass] += coreContribution;
             }
+        }
+
+        // --- HARMONIC DEMIXING / DECOUPLING ---
+        // Attenuate fifth (3rd harmonic) and third (5th harmonic) ghost leaks.
+        var demixedPcp = new double[numBins];
+        for (int i = 0; i < numBins; i++)
+        {
+            double val = pcp[i];
+            demixedPcp[i] += val;
+            
+            // Subtract 20% of energy from perfect fifth (3rd harmonic)
+            demixedPcp[(i + 7) % numBins] -= val * 0.20;
+            
+            // Subtract 10% of energy from major third (5th harmonic)
+            demixedPcp[(i + 4) % numBins] -= val * 0.10;
+        }
+
+        for (int i = 0; i < numBins; i++)
+        {
+            pcp[i] = Math.Max(0.0, demixedPcp[i]);
         }
 
         double totalEnergy = pcp.Sum();
@@ -229,11 +281,20 @@ public class KeyDetector : IKeyDetector
         {
             var rotatedPcp = RotateArray(pcp, root);
 
-            double majorCorr = ComputeCorrelation(rotatedPcp, MajorProfile);
-            results.Add((root, 0, majorCorr));
+            // Correlation against Krumhansl-Schmuckler
+            double majorCorrKS = ComputeCorrelation(rotatedPcp, MajorProfileKS);
+            double minorCorrKS = ComputeCorrelation(rotatedPcp, MinorProfileKS);
 
-            double minorCorr = ComputeCorrelation(rotatedPcp, MinorProfile);
-            results.Add((root, 1, minorCorr));
+            // Correlation against Temperley
+            double majorCorrTemp = ComputeCorrelation(rotatedPcp, MajorProfileTemperley);
+            double minorCorrTemp = ComputeCorrelation(rotatedPcp, MinorProfileTemperley);
+
+            // Combined Consensus
+            double combinedMajor = (majorCorrKS + majorCorrTemp) / 2.0;
+            double combinedMinor = (minorCorrKS + minorCorrTemp) / 2.0;
+
+            results.Add((root, 0, combinedMajor));
+            results.Add((root, 1, combinedMinor));
         }
 
         var sorted = results.OrderByDescending(r => r.correlation).ToList();

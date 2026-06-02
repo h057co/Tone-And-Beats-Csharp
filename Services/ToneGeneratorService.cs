@@ -59,6 +59,7 @@ public class ToneGeneratorService : IToneGeneratorService
     {
         var freqs = new System.Collections.Generic.List<double>();
         int startIdx = _currentScaleIndex;
+        int tonicIndex = (startIdx + 1) % 12;
 
         for (int i = 1; i <= 12; i++)
         {
@@ -66,6 +67,14 @@ public class ToneGeneratorService : IToneGeneratorService
             if (_scaleNotes[idx])
             {
                 int midiNote = 60 + idx;
+                
+                // If the note's pitch class index is less than the tonic's pitch class index,
+                // we have wrapped around the octave boundary, so we shift it up by one octave.
+                if (idx < tonicIndex)
+                {
+                    midiNote += 12;
+                }
+                
                 double freq = 440.0 * Math.Pow(2.0, (midiNote - 69.0) / 12.0);
                 freqs.Add(freq);
             }
