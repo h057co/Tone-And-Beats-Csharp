@@ -24,6 +24,7 @@ public interface IPlaybackController
     
     event Action<string>? StatusChanged;
     event Action<string, string>? PositionTextChanged;
+    event EventHandler<PlaybackState>? PlaybackStateChanged;
 }
 
 public class PlaybackController : IPlaybackController
@@ -32,6 +33,7 @@ public class PlaybackController : IPlaybackController
 
     public event Action<string>? StatusChanged;
     public event Action<string, string>? PositionTextChanged; // (PositionText, DurationText)
+    public event EventHandler<PlaybackState>? PlaybackStateChanged;
 
     public PlaybackController(IAudioPlayerService audioPlayerService)
     {
@@ -122,6 +124,7 @@ public class PlaybackController : IPlaybackController
                     UpdatePositionDisplay();
                     break;
             }
+            PlaybackStateChanged?.Invoke(this, state);
         });
     }
 

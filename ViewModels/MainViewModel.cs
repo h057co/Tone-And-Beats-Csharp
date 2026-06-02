@@ -151,6 +151,7 @@ public class MainViewModel : ViewModelBase
             DurationText = dur;
             WaveformPosition = _playbackController.Position.TotalSeconds;
         };
+        _playbackController.PlaybackStateChanged += OnPlaybackStateChanged;
     }
 
     public AsyncRelayCommand ResolveDependenciesCommand { get; }
@@ -1234,6 +1235,7 @@ public class MainViewModel : ViewModelBase
     public void Cleanup()
     {
         StopScalePlayback();
+        _playbackController.PlaybackStateChanged -= OnPlaybackStateChanged;
         _playbackController.Cleanup();
         _toneGeneratorService.Dispose();
     }
